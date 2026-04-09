@@ -1,5 +1,7 @@
 from difflib import SequenceMatcher
+import hashlib
 import re
+from pathlib import Path
 
 
 def clean_whitespace(text: str) -> str:
@@ -21,3 +23,19 @@ def dedupe_stories(stories: list[dict], threshold: float = 0.82) -> list[dict]:
         if not duplicate:
             kept.append(story)
     return kept
+
+
+def project_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+def stable_id(*parts: str, length: int = 16) -> str:
+    joined = "\n".join(part or "" for part in parts)
+    return hashlib.sha256(joined.encode("utf-8")).hexdigest()[:length]
+
+
+def safe_filename(value: str, *, max_length: int = 80) -> str:
+    lowered = (value or "").lower()
+    normalized = re.sub(r"[^a-z0-9]+", "-", lowered).strip("-")
+    normalized = re.sub(r"-{2,}", "-", normalized)
+    return (normalized[:max_length].strip("-") or "untitled")

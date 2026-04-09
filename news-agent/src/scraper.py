@@ -1,6 +1,10 @@
+from __future__ import annotations
+
 import json
 import logging
 import os
+from datetime import datetime, timezone
+from pathlib import Path
 from urllib.parse import urljoin
 
 import requests
@@ -9,7 +13,7 @@ from urllib3.util.retry import Retry
 from bs4 import BeautifulSoup
 from readability import Document
 
-from utils import clean_whitespace
+from utils import clean_whitespace, project_root, stable_id
 
 log = logging.getLogger(__name__)
 
@@ -46,8 +50,15 @@ def _make_session() -> requests.Session:
 _SESSION = _make_session()
 
 
-def load_sources(path: str = "config/sources.json") -> list[dict]:
-    with open(path, "r", encoding="utf-8") as f:
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def load_sources(path: str | Path | None = None) -> list[dict]:
+    source_path = Path(path) if path else project_root() / "config" / "sources.json"
+    if not source_path.is_absolute():
+        source_path = project_root() / source_path
+    with source_path.open("r", encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -79,11 +90,16 @@ def extract_homepage_links(source: dict) -> list[dict]:
             continue
         seen.add(key)
 
-        results.append({
-            "source": source["name"],
-            "title": title,
-            "url": url
-        })
+        results.append(
+            {
+                "source": source["name"],
+                "source_language": source.get("language", "unknown"),
+                "source_orientation": source.get("orientation", "unknown"),
+                "source_priority": int(source.get("priority", 3)),
+                "title": title,
+                "url": url,
+            }
+        )
 
         if len(results) >= source.get("max_links", 5):
             break
@@ -92,19 +108,57 @@ def extract_homepage_links(source: dict) -> list[dict]:
     return results
 
 
-def extract_article_text(url: str) -> str:
+def _extract_meta(soup: BeautifulSoup, *names: str) -> str | None:
+    for name in names:
+        tag = soup.find("meta", attrs={"property": name}) or soup.find("meta", attrs={"name": name})
+        if tag and tag.get("content"):
+            return clean_whitespace(tag["content"])
+    return None
+
+
+def _extract_metrics(_soup: BeautifulSoup) -> dict:
+    return {
+        "views": None,
+        "likes": None,
+        "shares": None,
+        "comments": None,
+    }
+
+
+def extract_article(url: str) -> dict:
     html = fetch_html(url, timeout=30)
     doc = Document(html)
     article_html = doc.summary()
     soup = BeautifulSoup(article_html, "lxml")
+    full_soup = BeautifulSoup(html, "lxml")
     paragraphs = [clean_whitespace(p.get_text(" ", strip=True)) for p in soup.select("p")]
     paragraphs = [p for p in paragraphs if len(p) > 40]
-    return "\n".join(paragraphs[:MAX_ARTICLE_PARAGRAPHS])
+    canonical = _extract_meta(full_soup, "og:url") or url
+    published_at = _extract_meta(
+        full_soup,
+        "article:published_time",
+        "datePublished",
+        "pubdate",
+        "date",
+        "DC.date.issued",
+    )
+    return {
+        "body": "\n".join(paragraphs[:MAX_ARTICLE_PARAGRAPHS]),
+        "canonical_url": canonical,
+        "published_at": published_at,
+        "description": _extract_meta(full_soup, "og:description", "description"),
+        "metrics": _extract_metrics(full_soup),
+    }
+
+
+def extract_article_text(url: str) -> str:
+    return extract_article(url)["body"]
 
 
 def collect_stories() -> list[dict]:
     sources = load_sources()
     stories = []
+    collected_at = _utc_now()
 
     for source in sources:
         try:
@@ -116,17 +170,29 @@ def collect_stories() -> list[dict]:
 
         for item in links:
             try:
-                body = extract_article_text(item["url"])
+                article = extract_article(item["url"])
+                body = article["body"]
                 if len(body) < MIN_BODY_CHARS:
                     log.debug("Skipping short article: %s", item["url"])
                     continue
 
-                stories.append({
-                    "source": item["source"],
-                    "title": item["title"],
-                    "url": item["url"],
-                    "body": body
-                })
+                url = article.get("canonical_url") or item["url"]
+                stories.append(
+                    {
+                        "id": stable_id(url, item["title"]),
+                        "source": item["source"],
+                        "source_language": item.get("source_language", "unknown"),
+                        "source_orientation": item.get("source_orientation", "unknown"),
+                        "source_priority": item.get("source_priority", 3),
+                        "title": item["title"],
+                        "url": url,
+                        "body": body,
+                        "description": article.get("description"),
+                        "published_at": article.get("published_at"),
+                        "collected_at": collected_at,
+                        "metrics": article.get("metrics", {}),
+                    }
+                )
                 log.debug("Scraped: %s", item["title"])
             except Exception as exc:
                 log.warning("Failed parsing article: %s -> %s", item["url"], exc)

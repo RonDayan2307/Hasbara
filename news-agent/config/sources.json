@@ -1,10 +1,13 @@
 [
   {
     "name": "AP World",
+    "language": "English",
+    "orientation": "wire_service",
+    "priority": 3,
     "homepage": "https://apnews.com/world-news",
     "base_url": "https://apnews.com",
     "max_links": 5,
     "link_selector": "a.Link",
-    "_selector_note": "Smoke-test mode: single AP story for fast end-to-end validation."
+    "_selector_note": "Stage 1 smoke source. Add more media outlets here with language, orientation, priority, homepage, base_url, max_links, and link_selector."
   }
 ]

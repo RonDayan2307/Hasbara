@@ -1,83 +1,151 @@
-# News Agent (Ollama + Claude Code workflow)
+# News Agent - Stage 1
 
-This project scrapes news pages, summarizes with local Ollama, and writes a `.txt` digest to your Desktop.
+This stage collects articles from configured media outlets, saves AI-readable files, reviews each article with a local Ollama/Gemma model, attaches relevant items to time-bounded topic memory, and writes a concise report to the Desktop.
 
-Default model:
+Default local model:
+
 - `gemma4:31b`
 
-## 1) Setup
+## What Stage 1 Does
+
+1. Scrapes article links from `config/sources.json`.
+2. Extracts readable article text and saves it as JSONL under `data/articles/`.
+3. Sends each article to the local model for triage:
+   - political relevance to Israel
+   - explicit anti-Zionist content
+   - misinformation or verification risk
+   - virality, when metrics exist
+4. Summarizes articles that are worth review.
+5. Cross-checks reviewed articles against existing time-bounded topic memory in `data/topics.json`.
+6. Saves a human report to the Desktop and AI-readable review files under `data/reviews/` and `data/runs/`.
+
+The agent is designed to stay source-faithful: it preserves uncertainty and treats misinformation scoring as "needs verification", not as a final truth verdict.
+
+## Setup
+
+Use Python 3.9 or newer.
+
+### macOS / Linux
 
 ```bash
-cd "/Users/ronday/Desktop/ollama testing/news-agent"
+cd news-agent
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Make sure Ollama is running and model exists:
+### Windows PowerShell
+
+```powershell
+cd news-agent
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+Make sure Ollama is running and the local model is available:
 
 ```bash
 ollama list
 ```
 
-## 2) Smallest test first (recommended)
+## Run
 
-Project is currently in smoke-test config by default:
-- `config/sources.json` has one source (`AP World`) with one link.
-- Summarizer defaults to one story.
-
-Run:
+### macOS / Linux
 
 ```bash
-cd "/Users/ronday/Desktop/ollama testing/news-agent"
 source .venv/bin/activate
 export OLLAMA_MODEL=gemma4:31b
-export NEWS_MAX_SUMMARY_STORIES=1
-export NEWS_MAX_ARTICLE_PARAGRAPHS=4
-export NEWS_MAX_BODY_CHARS=1200
-export OLLAMA_NUM_PREDICT=180
-export OLLAMA_TIMEOUT_SECONDS=900
 python src/main.py
+```
+
+### Windows PowerShell
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+$env:OLLAMA_MODEL = "gemma4:31b"
+python src\main.py
 ```
 
 Expected output:
-- progress logs `[1/4] ... [4/4]`
-- file on Desktop: `news_digest_YYYY-MM-DD.txt`
 
-## 3) Scale up gradually
+- progress logs from `[1/7]` to `[7/7]`
+- report file under `Desktop/HasbaraReports/`
+- AI-readable artifacts under `news-agent/data/`
 
-Step A: keep one source, increase story count
+## Useful Settings
+
+These environment variables work on macOS, Linux, and Windows:
+
+- `OLLAMA_MODEL`: local model name. Default: `gemma4:31b`
+- `OLLAMA_URL`: Ollama chat endpoint. Default: `http://localhost:11434/api/chat`
+- `NEWS_MAX_REVIEW_STORIES`: max articles reviewed per run. Default: `5`
+- `NEWS_MAX_ARTICLE_PARAGRAPHS`: max extracted paragraphs per article. Default: `6`
+- `NEWS_MAX_BODY_CHARS`: max body characters sent to Gemma per article. Default: `2400`
+- `NEWS_TOPIC_WINDOW_DAYS`: topic memory window. Default: `14`
+- `NEWS_OUTPUT_DIR`: custom report output folder. Default: `Desktop/HasbaraReports/`
+
+PowerShell example:
+
+```powershell
+$env:NEWS_MAX_REVIEW_STORIES = "2"
+$env:NEWS_OUTPUT_DIR = "$HOME\Desktop\HasbaraReports"
+python src\main.py
+```
+
+macOS/Linux example:
 
 ```bash
-export NEWS_MAX_SUMMARY_STORIES=2
-export OLLAMA_NUM_PREDICT=260
+export NEWS_MAX_REVIEW_STORIES=2
+export NEWS_OUTPUT_DIR="$HOME/Desktop/HasbaraReports"
 python src/main.py
 ```
 
-Step B: add more sources in `config/sources.json` and increase each `max_links`.
+## Configure Sources
 
-Step C: summarize more stories
+Edit `config/sources.json`.
 
-```bash
-export NEWS_MAX_SUMMARY_STORIES=3
-python src/main.py
+Each source supports:
+
+- `name`: source name used in reports.
+- `language`: source language for filtering and analysis.
+- `orientation`: source orientation label, if known.
+- `priority`: numeric priority. Higher sources are reviewed first.
+- `homepage`: page to scan for article links.
+- `base_url`: base URL for relative links.
+- `max_links`: maximum links to collect from that source.
+- `link_selector`: CSS selector for article links.
+
+Example:
+
+```json
+{
+  "name": "Example News",
+  "language": "English",
+  "orientation": "wire_service",
+  "priority": 4,
+  "homepage": "https://example.com/world",
+  "base_url": "https://example.com",
+  "max_links": 5,
+  "link_selector": "a.article-link"
+}
 ```
 
-If it becomes slow, lower:
-- `NEWS_MAX_BODY_CHARS`
-- `NEWS_MAX_ARTICLE_PARAGRAPHS`
-- `OLLAMA_NUM_PREDICT`
+## Output Files
 
-## 4) Key files
+The filenames avoid characters that cause trouble on Windows or macOS.
 
-- `src/main.py`: pipeline entrypoint.
-- `src/scraper.py`: scraping + article extraction.
-- `src/summarizer.py`: Ollama call + summarization prompt.
-- `src/writer.py`: writes Desktop digest file.
-- `config/sources.json`: source list and selectors.
+- `data/articles/YYYY-MM-DD/articles_*.jsonl`: extracted article text and metadata.
+- `data/reviews/YYYY-MM-DD/reviews_*.jsonl`: model reviews and topic/cross-check results.
+- `data/runs/YYYY-MM-DD/run_*.json`: complete machine-readable run.
+- `data/topics.json`: time-bounded topic memory.
+- `Desktop/HasbaraReports/hasbara-stage1-report-*.md`: human-readable report.
 
-## 5) Model wiring
+## Key Files
 
-Runtime model is controlled by your Python app, not by Claude Code itself:
-- `OLLAMA_MODEL` env var (default `gemma4:31b`) in `src/summarizer.py`
-- `OLLAMA_URL` env var (default `http://localhost:11434/api/chat`)
+- `src/main.py`: stage-1 pipeline entrypoint.
+- `src/scraper.py`: source loading, link collection, article extraction.
+- `src/analyzer.py`: Ollama/Gemma review and final report synthesis.
+- `src/memory.py`: time-bounded topic memory and cross-checking.
+- `src/writer.py`: AI-readable artifacts and Desktop report output.
+- `config/sources.json`: source list, language/orientation labels, and priority.
