@@ -69,8 +69,10 @@ def _call_ollama(
     if json_format:
         payload["format"] = "json"
 
+    use_stream = STREAM_CHAT and not json_format
+
     try:
-        if STREAM_CHAT:
+        if use_stream:
             return _stream_chat(payload)
         return _non_stream_chat(payload)
     except requests.exceptions.ReadTimeout as exc:
@@ -342,6 +344,9 @@ def review_story(story: dict[str, Any]) -> dict[str, Any]:
         {"role": "user", "content": build_review_prompt(story)},
     ]
     raw_text = _call_ollama(messages, json_format=True)
+    if not raw_text.strip():
+        log.warning("Model returned empty JSON review for %s", story.get("id"))
+        return _fallback_review(story, reason="model returned an empty response")
     try:
         raw_json = _json_from_text(raw_text)
     except json.JSONDecodeError as exc:

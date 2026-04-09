@@ -148,7 +148,7 @@ def write_stage1_report(report_text: str, reviewed_items: list[dict], artifacts:
         *_format_sources(reviewed_items),
     ]
 
-    outpath.write_text("\n".join(lines), encoding="utf-8", newline="\n")
+    outpath.write_text("\n".join(lines), encoding="utf-8")
     return outpath
 
 
