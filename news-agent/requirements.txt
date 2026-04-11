@@ -1,4 +1,5 @@
 requests
+urllib3<2
 beautifulsoup4
 lxml
 readability-lxml

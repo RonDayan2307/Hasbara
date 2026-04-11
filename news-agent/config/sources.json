@@ -1,13 +1,97 @@
 [
   {
+    "_note": "Israeli English-language sources — Priority 5",
+    "name": "Times of Israel",
+    "language": "English",
+    "orientation": "israeli_center",
+    "priority": 5,
+    "homepage": "https://www.timesofisrael.com/",
+    "base_url": "https://www.timesofisrael.com",
+    "max_links": 5
+  },
+  {
+    "name": "Jerusalem Post",
+    "language": "English",
+    "orientation": "israeli_right",
+    "priority": 5,
+    "homepage": "https://www.jpost.com/",
+    "base_url": "https://www.jpost.com",
+    "max_links": 5
+  },
+  {
+    "name": "Haaretz English",
+    "language": "English",
+    "orientation": "israeli_left",
+    "priority": 5,
+    "homepage": "https://www.haaretz.com/israel-news/",
+    "base_url": "https://www.haaretz.com",
+    "max_links": 4
+  },
+  {
+    "name": "Ynet News",
+    "language": "English",
+    "orientation": "israeli_center",
+    "priority": 5,
+    "homepage": "https://www.ynetnews.com/category/3082",
+    "base_url": "https://www.ynetnews.com",
+    "max_links": 4
+  },
+  {
+    "_note": "International wire services — Priority 4",
     "name": "AP World",
     "language": "English",
     "orientation": "wire_service",
-    "priority": 3,
+    "priority": 4,
     "homepage": "https://apnews.com/world-news",
     "base_url": "https://apnews.com",
-    "max_links": 5,
-    "link_selector": "a.Link",
-    "_selector_note": "Stage 1 smoke source. Add more media outlets here with language, orientation, priority, homepage, base_url, max_links, and link_selector."
+    "max_links": 4,
+    "link_selector": "a.Link"
+  },
+  {
+    "name": "Reuters World",
+    "language": "English",
+    "orientation": "wire_service",
+    "priority": 4,
+    "homepage": "https://www.reuters.com/world/",
+    "base_url": "https://www.reuters.com",
+    "max_links": 4
+  },
+  {
+    "_note": "Major Western outlets — Priority 3",
+    "name": "BBC Middle East",
+    "language": "English",
+    "orientation": "center",
+    "priority": 3,
+    "homepage": "https://www.bbc.com/news/world/middle_east",
+    "base_url": "https://www.bbc.com",
+    "max_links": 4
+  },
+  {
+    "name": "Guardian Middle East",
+    "language": "English",
+    "orientation": "center_left",
+    "priority": 3,
+    "homepage": "https://www.theguardian.com/world/middleeast",
+    "base_url": "https://www.theguardian.com",
+    "max_links": 3
+  },
+  {
+    "_note": "Critical/opposing voices to track — Priority 2",
+    "name": "Al Jazeera English",
+    "language": "English",
+    "orientation": "qatari_state",
+    "priority": 2,
+    "homepage": "https://www.aljazeera.com/middle-east/",
+    "base_url": "https://www.aljazeera.com",
+    "max_links": 4
+  },
+  {
+    "name": "Middle East Eye",
+    "language": "English",
+    "orientation": "critical",
+    "priority": 2,
+    "homepage": "https://www.middleeasteye.net/",
+    "base_url": "https://www.middleeasteye.net",
+    "max_links": 3
   }
 ]

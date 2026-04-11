@@ -10,7 +10,7 @@ from urllib3.util.retry import Retry
 log = logging.getLogger(__name__)
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/chat")
-MODEL_NAME = os.getenv("OLLAMA_MODEL", "gemma4:31b")
+MODEL_NAME = os.getenv("OLLAMA_MODEL", "gemma4:e4b")
 REQUEST_TIMEOUT_SECONDS = int(os.getenv("OLLAMA_TIMEOUT_SECONDS", "900"))
 MAX_SUMMARY_STORIES = int(os.getenv("NEWS_MAX_SUMMARY_STORIES", "1"))
 MAX_BODY_CHARS = int(os.getenv("NEWS_MAX_BODY_CHARS", "1600"))

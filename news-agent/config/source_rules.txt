@@ -1,0 +1,14 @@
+# Optional per-source scraping rules
+# Format:
+# Source Name | deny_path=/topic/;/newsletter/ | deny_title=daily edition;monthly update | prefer_path=/israel/;/middle-east/
+
+Times of Israel | deny_path=/topic/;/tag/;/tech-israel-edition/;/real-estate-israel-monthly-update/;/daily-edition/;/newsletter/;/blogs/;/podcasts/;/video/ | deny_title=daily edition;monthly update;tech israel updates;real estate israel | prefer_path=/israel/;/middle-east/;/liveblog/
+Jerusalem Post | deny_path=/tag/;/blogs/;/podcasts/;/video/;/magazine/;/newsletter/ | deny_title=podcast;newsletter;frontlines | prefer_path=/israel-news/;/breaking-news/
+Haaretz English | deny_path=/opinion/;/blogs/;/podcasts/;/newsletters/ | deny_title=podcast;newsletter;analysis | prefer_path=/israel-news/;/middle-east-news/
+Ynet News | deny_path=/category/;/magazine/;/health/;/food/ | deny_title=weekend;magazine | prefer_path=/article/
+AP World | deny_path=/hub/;/video/;/live/ | deny_title=watch live;video | prefer_path=/article/
+Reuters World | deny_path=/world/graphics/;/video/;/podcast/ | deny_title=podcast;video | prefer_path=/world/;/business/
+BBC Middle East | deny_path=/av/;/sounds/;/live/ | deny_title=live;podcast | prefer_path=/news/
+Guardian Middle East | deny_path=/live/;/video/;/audio/ | deny_title=live blog;podcast | prefer_path=/world/
+Al Jazeera English | deny_path=/program/;/podcasts/;/features/ | deny_title=listen;podcast | prefer_path=/news/;/middle-east/
+Middle East Eye | deny_path=/opinion/;/video/;/podcasts/ | deny_title=opinion;podcast | prefer_path=/news/;/middleeast-news/

@@ -1,0 +1,25 @@
+# Source sites for Stage 1 news monitoring
+# Format: Site Name | Homepage URL | Max Articles | Language | Orientation | Priority (1–5, higher = more important)
+# Priority 5 = critical Israeli/regional sources
+# Priority 4 = major international wire services
+# Priority 3 = mainstream Western outlets
+# Priority 2 = left-leaning or critical outlets (important to track narrative)
+# Priority 1 = supplementary or regional
+
+# ── Israeli English-language sources (Priority 5) ────────────────────────────
+Times of Israel     | https://www.timesofisrael.com/           | 5 | English | israeli_center  | 5
+Jerusalem Post      | https://www.jpost.com/                    | 5 | English | israeli_right   | 5
+Haaretz English     | https://www.haaretz.com/israel-news/      | 4 | English | israeli_left    | 5
+Ynet News           | https://www.ynetnews.com/category/3082    | 4 | English | israeli_center  | 5
+
+# ── International wire services (Priority 4) ─────────────────────────────────
+AP World            | https://apnews.com/world-news             | 4 | English | wire_service    | 4
+Reuters World       | https://www.reuters.com/world/            | 4 | English | wire_service    | 4
+
+# ── Major Western outlets (Priority 3) ───────────────────────────────────────
+BBC Middle East     | https://www.bbc.com/news/world/middle_east | 4 | English | center         | 3
+Guardian Middle East| https://www.theguardian.com/world/middleeast | 3 | English | center_left  | 3
+
+# ── Critical/opposing voices to track (Priority 2) ───────────────────────────
+Al Jazeera English  | https://www.aljazeera.com/middle-east/    | 4 | English | qatari_state   | 2
+Middle East Eye     | https://www.middleeasteye.net/             | 3 | English | critical        | 2

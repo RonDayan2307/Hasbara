@@ -15,14 +15,16 @@ def similarity(a: str, b: str) -> float:
 def dedupe_stories(stories: list[dict], threshold: float = 0.82) -> list[dict]:
     kept = []
     for story in stories:
-        duplicate = False
-        for existing in kept:
-            if similarity(story["title"], existing["title"]) >= threshold:
-                duplicate = True
-                break
-        if not duplicate:
+        if not is_duplicate_story(story, kept, threshold=threshold):
             kept.append(story)
     return kept
+
+
+def is_duplicate_story(story: dict, existing_stories: list[dict], threshold: float = 0.82) -> bool:
+    for existing in existing_stories:
+        if similarity(story["title"], existing["title"]) >= threshold:
+            return True
+    return False
 
 
 def project_root() -> Path:

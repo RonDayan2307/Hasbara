@@ -1,25 +1,19 @@
 # News Agent - Stage 1
 
-This stage collects articles from configured media outlets, saves AI-readable files, reviews each article with a local Ollama/Gemma model, attaches relevant items to time-bounded topic memory, and writes a concise report to the Desktop.
+This stage collects articles from configured media sites, saves AI-readable article files, reviews them with a local Ollama model, groups relevant items into time-bounded topics, and writes a report to the Desktop.
 
-Default local model:
+## Modular Files
 
-- `gemma4:31b`
+The project is now controlled by plain text files:
 
-## What Stage 1 Does
-
-1. Scrapes article links from `config/sources.json`.
-2. Extracts readable article text and saves it as JSONL under `data/articles/`.
-3. Sends each article to the local model for triage:
-   - political relevance to Israel
-   - explicit anti-Zionist content
-   - misinformation or verification risk
-   - virality, when metrics exist
-4. Summarizes articles that are worth review.
-5. Cross-checks reviewed articles against existing time-bounded topic memory in `data/topics.json`.
-6. Saves a human report to the Desktop and AI-readable review files under `data/reviews/` and `data/runs/`.
-
-The agent is designed to stay source-faithful: it preserves uncertainty and treats misinformation scoring as "needs verification", not as a final truth verdict.
+- [runtime_settings.txt](/Users/ronday/Desktop/Hasbara/news-agent/config/runtime_settings.txt)
+  OS type, model name, output paths, batching, and thresholds.
+- [review_criteria.txt](/Users/ronday/Desktop/Hasbara/news-agent/config/review_criteria.txt)
+  The scoring questions. Each criterion is scored from 1 to 10.
+- [source_sites.txt](/Users/ronday/Desktop/Hasbara/news-agent/config/source_sites.txt)
+  Site name, homepage URL, and number of articles to analyze.
+- [source_rules.txt](/Users/ronday/Desktop/Hasbara/news-agent/config/source_rules.txt)
+  Optional per-source deny/prefer rules to avoid topic hubs, newsletters, and other non-article pages.
 
 ## Setup
 
@@ -32,6 +26,7 @@ cd news-agent
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+python src/main.py
 ```
 
 ### Windows PowerShell
@@ -41,111 +36,124 @@ cd news-agent
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-```
-
-Make sure Ollama is running and the local model is available:
-
-```bash
-ollama list
-```
-
-## Run
-
-### macOS / Linux
-
-```bash
-source .venv/bin/activate
-export OLLAMA_MODEL=gemma4:31b
-python src/main.py
-```
-
-### Windows PowerShell
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-$env:OLLAMA_MODEL = "gemma4:31b"
 python src\main.py
 ```
 
-Expected output:
+## Runtime Settings
 
-- progress logs from `[1/7]` to `[7/7]`
-- report file under `Desktop/HasbaraReports/`
-- AI-readable artifacts under `news-agent/data/`
+Edit [runtime_settings.txt](/Users/ronday/Desktop/Hasbara/news-agent/config/runtime_settings.txt#L1).
 
-## Useful Settings
+Important fields:
 
-These environment variables work on macOS, Linux, and Windows:
+- `os_type=macos` or `os_type=windows`
+- `local_ai_model=gemma4:e4b`
+- `output_dir=../reports`
+- `report_mode=local` or `report_mode=model`
+- `review_mode=batch` or `review_mode=single`
+- `review_batch_size=2`
+- `criteria_path=config/review_criteria.txt`
+- `source_config_path=config/source_sites.txt`
+- `source_rules_path=config/source_rules.txt`
 
-- `OLLAMA_MODEL`: local model name. Default: `gemma4:31b`
-- `OLLAMA_URL`: Ollama chat endpoint. Default: `http://localhost:11434/api/chat`
-- `NEWS_MAX_REVIEW_STORIES`: max articles reviewed per run. Default: `5`
-- `NEWS_MAX_ARTICLE_PARAGRAPHS`: max extracted paragraphs per article. Default: `6`
-- `NEWS_MAX_BODY_CHARS`: max body characters sent to Gemma per article. Default: `2400`
-- `NEWS_TOPIC_WINDOW_DAYS`: topic memory window. Default: `14`
-- `NEWS_OUTPUT_DIR`: custom report output folder. Default: `Desktop/HasbaraReports/`
+Recommended defaults:
 
-PowerShell example:
+- `review_mode=single` for the current one-by-one workflow
+- `review_batch_size=2` is a safer default for Gemma than `5`
+- `max_review_stories=3` keeps the run small while tuning
+- `report_mode=local` for faster step 6
+- `output_dir=../reports` keeps generated reports inside the main `Hasbara` folder
+- `max_article_paragraphs=4`
+- `max_body_chars=900`
+- `review_num_predict_per_story=80`
+- `num_ctx=2048`
 
-```powershell
-$env:NEWS_MAX_REVIEW_STORIES = "2"
-$env:NEWS_OUTPUT_DIR = "$HOME\Desktop\HasbaraReports"
-python src\main.py
+## Review Criteria
+
+Edit [review_criteria.txt](/Users/ronday/Desktop/Hasbara/news-agent/config/review_criteria.txt#L1).
+
+Format:
+
+```txt
+criterion_name | material description
 ```
-
-macOS/Linux example:
-
-```bash
-export NEWS_MAX_REVIEW_STORIES=2
-export NEWS_OUTPUT_DIR="$HOME/Desktop/HasbaraReports"
-python src/main.py
-```
-
-## Configure Sources
-
-Edit `config/sources.json`.
-
-Each source supports:
-
-- `name`: source name used in reports.
-- `language`: source language for filtering and analysis.
-- `orientation`: source orientation label, if known.
-- `priority`: numeric priority. Higher sources are reviewed first.
-- `homepage`: page to scan for article links.
-- `base_url`: base URL for relative links.
-- `max_links`: maximum links to collect from that source.
-- `link_selector`: CSS selector for article links.
 
 Example:
 
-```json
-{
-  "name": "Example News",
-  "language": "English",
-  "orientation": "wire_service",
-  "priority": 4,
-  "homepage": "https://example.com/world",
-  "base_url": "https://example.com",
-  "max_links": 5,
-  "link_selector": "a.article-link"
-}
+```txt
+israel_political_relevance | politically relevant to Israel
+anti_zionist_content | anti-Zionist
+misinformation_risk | misleading, false, manipulative, or clearly unverified
+virality | viral, highly shareable, or likely to spread quickly
 ```
+
+For each criterion, the local model is asked the equivalent of:
+
+`Does this article contain <material description> material?`
+
+and returns a score from `1` to `10`.
+
+## Source Sites
+
+Edit [source_sites.txt](/Users/ronday/Desktop/Hasbara/news-agent/config/source_sites.txt#L1).
+
+Format:
+
+```txt
+Site Name | Homepage URL | Number of Articles | Language (optional) | Orientation (optional) | Priority (optional)
+```
+
+Example:
+
+```txt
+AP World | https://apnews.com/world-news | 3 | English | wire_service | 3
+Reuters World | https://www.reuters.com/world/ | 3 | English | wire_service | 3
+```
+
+## Source Rules
+
+Edit [source_rules.txt](/Users/ronday/Desktop/Hasbara/news-agent/config/source_rules.txt#L1).
+
+Format:
+
+```txt
+Site Name | deny_path=/topic/;/newsletter/ | deny_title=daily edition;monthly update | prefer_path=/israel/;/middle-east/
+```
+
+Use this file to keep each source pointed at actual articles instead of hub pages, newsletters, or recurring roundup pages.
+For example, the default rules now block Haaretz `analysis` titles during stage 1.
+
+## What Changed In This Iteration
+
+1. Review scoring is now driven by editable text criteria.
+2. Review scores are now `1-10` per criterion instead of fixed hardcoded fields.
+3. `summary_bullets` was removed from records to reduce waste.
+4. The current run mode processes articles one by one instead of bulk review.
+5. Step 6 local synthesis now groups by topic and uses the review data rather than just echoing a fast placeholder.
+6. The review artifact is slimmer and keyed by `story_id`.
+7. Source configuration now supports a plain text site list.
+8. Source selection now rotates across sources instead of draining only the top-priority site first.
+9. Invalid model JSON is now logged with raw debug output under `data/debug/`.
+10. Empty model responses now also create debug artifacts, and reports call out heuristic fallback usage explicitly.
 
 ## Output Files
 
-The filenames avoid characters that cause trouble on Windows or macOS.
-
-- `data/articles/YYYY-MM-DD/articles_*.jsonl`: extracted article text and metadata.
-- `data/reviews/YYYY-MM-DD/reviews_*.jsonl`: model reviews and topic/cross-check results.
-- `data/runs/YYYY-MM-DD/run_*.json`: complete machine-readable run.
-- `data/topics.json`: time-bounded topic memory.
-- `Desktop/HasbaraReports/hasbara-stage1-report-*.md`: human-readable report.
+- `data/articles/YYYY-MM-DD/articles_*.jsonl`
+  Extracted article text and metadata.
+- `data/reviews/YYYY-MM-DD/reviews_*.jsonl`
+  Review results keyed by `story_id`, plus topic and cross-check data.
+- `data/runs/YYYY-MM-DD/run_*.json`
+  Run manifest with artifact paths and counts.
+- `data/topics.json`
+  Time-bounded topic memory.
+- `../reports/hasbara-stage1-report-*.md`
+  Human-readable report.
 
 ## Key Files
 
-- `src/main.py`: stage-1 pipeline entrypoint.
-- `src/scraper.py`: source loading, link collection, article extraction.
-- `src/analyzer.py`: Ollama/Gemma review and final report synthesis.
-- `src/memory.py`: time-bounded topic memory and cross-checking.
-- `src/writer.py`: AI-readable artifacts and Desktop report output.
-- `config/sources.json`: source list, language/orientation labels, and priority.
+- [main.py](/Users/ronday/Desktop/Hasbara/news-agent/src/main.py)
+- [settings.py](/Users/ronday/Desktop/Hasbara/news-agent/src/settings.py)
+- [criteria.py](/Users/ronday/Desktop/Hasbara/news-agent/src/criteria.py)
+- [scraper.py](/Users/ronday/Desktop/Hasbara/news-agent/src/scraper.py)
+- [analyzer.py](/Users/ronday/Desktop/Hasbara/news-agent/src/analyzer.py)
+- [memory.py](/Users/ronday/Desktop/Hasbara/news-agent/src/memory.py)
+- [writer.py](/Users/ronday/Desktop/Hasbara/news-agent/src/writer.py)

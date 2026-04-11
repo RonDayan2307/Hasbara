@@ -1,0 +1,51 @@
+# Stage 1 runtime settings
+# Format: key=value
+
+# Platform behavior
+os_type=macos
+desktop_dir=
+output_dir=../reports
+report_subdir=reports
+
+# Local AI
+local_ai_model=gemma4:e4b
+ollama_url=http://localhost:11434/api/chat
+ollama_timeout_seconds=600
+ollama_stream=false
+
+# Pipeline behavior
+review_mode=single
+report_mode=local
+review_batch_size=2
+max_review_stories=6
+max_article_paragraphs=4
+min_body_chars=120
+max_body_chars=900
+
+# Local AI output budgets
+# A full JSON review for 5 criteria needs a few hundred output tokens to finish cleanly.
+review_num_predict_per_story=220
+report_num_predict=420
+# gemma4:e4b is lighter than the previous 31B setup, so 4096 is a safer default.
+num_ctx=4096
+progress_log_seconds=15
+
+# Review criteria
+criteria_path=config/review_criteria.txt
+review_worthy_min_score=7
+review_average_min_score=6
+priority_high_min_score=8
+priority_breaking_min_score=9
+
+# Topic memory
+topic_window_days=14
+topic_match_threshold=0.52
+
+# Paths
+source_config_path=config/source_sites.txt
+source_rules_path=config/source_rules.txt
+data_dir=data
+debug_dir=data/debug
+
+# Network
+user_agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36

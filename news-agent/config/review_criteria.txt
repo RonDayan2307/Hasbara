@@ -1,0 +1,19 @@
+# Review criteria for Stage 1 public diplomacy monitoring
+# Format: criterion_name | material description
+# The model scores each criterion 1–10 by asking:
+# "Does this article contain <material description> material?"
+
+# ── Core criteria ────────────────────────────────────────────────────────────
+israel_political_relevance    | politically relevant to Israel, Israeli policy, or Israeli interests
+antisemitic_content           | antisemitic, targeting Jewish people as a group, or promoting hatred toward Jews
+anti_zionist_content          | anti-Zionist, denying Israel's right to exist, or framing Zionism as inherently illegitimate
+misinformation_risk           | misleading, false, manipulative, or clearly unverified claims
+virality                      | viral, highly shareable, or likely to spread quickly across social media
+
+# ── Recommended additional criteria ─────────────────────────────────────────
+# Uncomment any of the lines below to activate them.
+
+# incitement_to_violence       | inciting, glorifying, or justifying violence against Israelis, Jews, or Israeli interests
+# narrative_delegitimization   | delegitimizing Israel as a state, its government, or its right to defend itself
+# geopolitical_escalation      | active military, diplomatic, or strategic escalation directly affecting Israel or the region
+# source_credibility           | originating from a low-credibility, state-controlled, or known-disinformation outlet

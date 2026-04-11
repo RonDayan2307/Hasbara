@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 import json
-import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from settings import RuntimeSettings
 from utils import clean_whitespace, project_root, safe_filename, similarity
-
-TOPIC_WINDOW_DAYS = int(os.getenv("NEWS_TOPIC_WINDOW_DAYS", "14"))
-MATCH_THRESHOLD = float(os.getenv("NEWS_TOPIC_MATCH_THRESHOLD", "0.52"))
 
 
 def _utc_now() -> datetime:
@@ -44,13 +41,14 @@ def _topic_id(name: str, created_at: datetime) -> str:
 
 
 class TopicMemory:
-    def __init__(self, path: Path | None = None) -> None:
-        self.path = path or project_root() / "data" / "topics.json"
+    def __init__(self, settings: RuntimeSettings, path: Path | None = None) -> None:
+        self.settings = settings
+        self.path = path or settings.topics_path or project_root() / "data" / "topics.json"
         self.topics: list[dict[str, Any]] = []
 
     @classmethod
-    def load(cls, path: Path | None = None) -> "TopicMemory":
-        memory = cls(path)
+    def load(cls, settings: RuntimeSettings, path: Path | None = None) -> "TopicMemory":
+        memory = cls(settings, path)
         if memory.path.exists():
             data = json.loads(memory.path.read_text(encoding="utf-8"))
             if isinstance(data, dict):
@@ -63,7 +61,7 @@ class TopicMemory:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "schema_version": 1,
-            "topic_window_days": TOPIC_WINDOW_DAYS,
+            "topic_window_days": self.settings.topic_window_days,
             "topics": self.topics,
         }
         self.path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -97,7 +95,7 @@ class TopicMemory:
             "collected_at": story.get("collected_at"),
             "reviewed_at": review.get("reviewed_at"),
             "priority": review.get("priority"),
-            "one_sentence_summary": review.get("one_sentence_summary"),
+            "summary": review.get("summary"),
             "claims_to_verify": review.get("claims_to_verify", []),
         }
 
@@ -134,12 +132,12 @@ class TopicMemory:
                 best_score = score
                 best_topic = topic
 
-        if best_score >= MATCH_THRESHOLD:
+        if best_score >= self.settings.topic_match_threshold:
             return best_topic
         return None
 
     def _new_topic(self, name: str, now: datetime) -> dict[str, Any]:
-        window_end = now + timedelta(days=TOPIC_WINDOW_DAYS)
+        window_end = now + timedelta(days=self.settings.topic_window_days)
         return {
             "id": _topic_id(name, now),
             "name": name,
