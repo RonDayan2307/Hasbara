@@ -1,19 +1,19 @@
 # Review criteria for Stage 1 public diplomacy monitoring
-# Format: criterion_name | material description
-# The model scores each criterion 1–10 by asking:
-# "Does this article contain <material description> material?"
+# Format: criterion_name | material description | low anchor (1-3) | mid anchor (4-6) | high anchor (7-10)
+# The model scores each criterion 1–10 using the anchors as calibration guides.
+# Anchor fields are optional — omit them for a generic 1-10 scale.
 
 # ── Core criteria ────────────────────────────────────────────────────────────
-israel_political_relevance    | politically relevant to Israel, Israeli policy, or Israeli interests
-antisemitic_content           | antisemitic, targeting Jewish people as a group, or promoting hatred toward Jews
-anti_zionist_content          | anti-Zionist, denying Israel's right to exist, or framing Zionism as inherently illegitimate
-misinformation_risk           | misleading, false, manipulative, or clearly unverified claims
-virality                      | viral, highly shareable, or likely to spread quickly across social media
+israel_political_relevance    | politically relevant to Israel, Israeli policy, or Israeli interests | no Israel connection | indirect or tangential Israel relevance | directly about Israeli politics, security, or diplomacy
+antisemitic_content           | antisemitic, targeting Jewish people as a group, or promoting hatred toward Jews | no antisemitic elements | borderline stereotypes or dog-whistles | explicit hatred, conspiracy theories, or dehumanization
+anti_zionist_content          | anti-Zionist, denying Israel's right to exist, or framing Zionism as inherently illegitimate | no anti-Zionist framing | critical of Israeli policy but not delegitimizing | explicit denial of Israel's right to exist
+misinformation_risk           | misleading, false, manipulative, or clearly unverified claims | standard factual reporting | some unverified or contested claims | clearly fabricated, manipulative, or debunked content
+virality                      | viral, highly shareable, or likely to spread quickly across social media | niche or low engagement potential | moderate shareability | highly emotional, provocative, or likely to go viral
 
 # ── Recommended additional criteria ─────────────────────────────────────────
 # Uncomment any of the lines below to activate them.
 
-# incitement_to_violence       | inciting, glorifying, or justifying violence against Israelis, Jews, or Israeli interests
-# narrative_delegitimization   | delegitimizing Israel as a state, its government, or its right to defend itself
-# geopolitical_escalation      | active military, diplomatic, or strategic escalation directly affecting Israel or the region
-# source_credibility           | originating from a low-credibility, state-controlled, or known-disinformation outlet
+# incitement_to_violence       | inciting, glorifying, or justifying violence against Israelis, Jews, or Israeli interests | no violent language | ambiguous or indirect incitement | direct calls for violence or glorification of attacks
+# narrative_delegitimization   | delegitimizing Israel as a state, its government, or its right to defend itself | neutral or balanced framing | one-sided but not delegitimizing | systematic delegitimization of Israel's existence or self-defense
+# geopolitical_escalation      | active military, diplomatic, or strategic escalation directly affecting Israel or the region | no escalation signals | diplomatic tensions or posturing | active military operations or major diplomatic crises
+# source_credibility           | originating from a low-credibility, state-controlled, or known-disinformation outlet | established credible outlet | mixed credibility record | known propaganda or disinformation source

@@ -1,6 +1,8 @@
 .venv/
+venv/
 __pycache__/
 *.py[cod]
 data/
 reports/
 logs/*.log
+.pytest_cache/

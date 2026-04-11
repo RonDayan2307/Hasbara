@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -16,24 +17,34 @@ class ReviewCache:
     fallback reviews are NOT cached — only successful model reviews are stored.
     """
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, namespace: str) -> None:
         self.path = path
+        self.namespace = namespace
         self._cache: dict[str, dict[str, Any]] = {}
         self._hits = 0
         self._misses = 0
 
     @classmethod
-    def load(cls, path: Path) -> "ReviewCache":
-        obj = cls(path)
+    def load(cls, path: Path, namespace: str) -> "ReviewCache":
+        obj = cls(path, namespace)
         if path.exists():
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
-                obj._cache = data.get("reviews", {})
-                log.info(
-                    "Loaded review cache: %d cached reviews from %s",
-                    len(obj._cache),
-                    path,
-                )
+                cache_namespace = data.get("namespace")
+                if cache_namespace != namespace:
+                    log.info(
+                        "Ignoring stale review cache namespace %s from %s; expected %s.",
+                        cache_namespace or "<missing>",
+                        path,
+                        namespace,
+                    )
+                else:
+                    obj._cache = data.get("reviews", {})
+                    log.info(
+                        "Loaded review cache: %d cached reviews from %s",
+                        len(obj._cache),
+                        path,
+                    )
             except Exception as exc:
                 log.warning(
                     "Could not load review cache from %s: %s. Starting fresh.",
@@ -47,17 +58,24 @@ class ReviewCache:
         if review is not None:
             self._hits += 1
             log.debug("Cache hit for story_id=%s", story_id)
+            cached_review = deepcopy(review)
+            cached_review["original_review_method"] = review.get("review_method", "model")
+            cached_review["review_method"] = "cached"
+            return cached_review
         else:
             self._misses += 1
-        return review
+        return None
 
     def put(self, story_id: str, review: dict[str, Any]) -> None:
-        self._cache[story_id] = review
+        stored = deepcopy(review)
+        stored["review_method"] = "model"
+        self._cache[story_id] = stored
 
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
-            "schema_version": 1,
+            "schema_version": 2,
+            "namespace": self.namespace,
             "count": len(self._cache),
             "reviews": self._cache,
         }

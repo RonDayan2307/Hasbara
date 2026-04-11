@@ -14,7 +14,7 @@ Ynet News           | https://www.ynetnews.com/category/3082    | 4 | English | 
 
 # ── International wire services (Priority 4) ─────────────────────────────────
 AP World            | https://apnews.com/world-news             | 4 | English | wire_service    | 4
-Reuters World       | https://www.reuters.com/world/            | 4 | English | wire_service    | 4
+Reuters World       | https://www.reuters.com/world/            | 4 | English | wire_service    | 4 | fallback_homepages=https://www.reuters.com/world/middle-east/;https://www.reuters.com/world/europe/ | warn_on_failure=false
 
 # ── Major Western outlets (Priority 3) ───────────────────────────────────────
 BBC Middle East     | https://www.bbc.com/news/world/middle_east | 4 | English | center         | 3

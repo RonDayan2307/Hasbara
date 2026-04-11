@@ -40,17 +40,28 @@ class OllamaClient:
     def health_check(self) -> bool:
         """Send a minimal JSON probe before the main pipeline starts.
 
-        Returns True if Ollama responds with any non-empty content.
+        Returns True only if Ollama returns valid JSON matching the probe contract.
         A False result means Ollama is down, the model is not loaded,
-        or the context window is too small to return any tokens.
+        or the model could not produce the structured output required by this pipeline.
         """
         log.debug("Running Ollama health check against %s ...", self.settings.ollama_url)
         try:
             result = self.chat(_HEALTH_PROBE, num_predict=20, json_format=True)
-            if result.strip():
+            if not result.strip():
+                log.warning("Ollama health check: model returned empty output.")
+                return False
+
+            try:
+                payload = json.loads(result)
+            except json.JSONDecodeError as exc:
+                log.warning("Ollama health check: model returned invalid JSON: %s", exc)
+                return False
+
+            if isinstance(payload, dict) and payload.get("ok") is True:
                 log.info("Ollama health check passed.")
                 return True
-            log.warning("Ollama health check: model returned empty output.")
+
+            log.warning("Ollama health check: unexpected JSON payload: %s", payload)
             return False
         except Exception as exc:
             log.warning("Ollama health check failed: %s", exc)
@@ -69,7 +80,7 @@ class OllamaClient:
             "options": {
                 "num_predict": num_predict,
                 "num_ctx": self.settings.num_ctx,
-                "temperature": 0.1,
+                "temperature": self.settings.ollama_temperature,
             },
         }
         if json_format:

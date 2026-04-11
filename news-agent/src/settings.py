@@ -21,9 +21,8 @@ class RuntimeSettings:
     ollama_url: str
     ollama_timeout_seconds: int
     ollama_stream: bool
-    review_mode: str
+    ollama_temperature: float
     report_mode: str
-    review_batch_size: int
     max_review_stories: int
     max_article_paragraphs: int
     min_body_chars: int
@@ -39,6 +38,7 @@ class RuntimeSettings:
     review_average_min_score: int
     priority_high_min_score: int
     priority_breaking_min_score: int
+    min_usable_review_ratio: float
     source_config_path: Path
     source_rules_path: Path
     data_dir: Path
@@ -83,11 +83,11 @@ class RuntimeSettings:
         if self.output_dir:
             return self.output_dir
 
-        workspace_reports = project_root().parent / "reports"
+        workspace_reports = project_root().parent / self.report_subdir
         if workspace_reports.parent.exists():
             return workspace_reports
 
-        return project_root() / "reports"
+        return project_root() / self.report_subdir
 
 
 def load_runtime_settings(path: str | Path | None = None) -> RuntimeSettings:
@@ -96,21 +96,20 @@ def load_runtime_settings(path: str | Path | None = None) -> RuntimeSettings:
         settings_path = project_root() / settings_path
 
     parsed = _parse_settings_file(settings_path)
-    return RuntimeSettings(
+    settings = RuntimeSettings(
         path=settings_path,
         os_type=_string_setting(parsed, "os_type", "macos").lower(),
         local_ai_model=_string_setting(parsed, "local_ai_model", "gemma4:e4b"),
         ollama_url=_string_setting(parsed, "ollama_url", "http://localhost:11434/api/chat"),
         ollama_timeout_seconds=_int_setting(parsed, "ollama_timeout_seconds", 600),
         ollama_stream=_bool_setting(parsed, "ollama_stream", False),
-        review_mode=_string_setting(parsed, "review_mode", "batch").lower(),
+        ollama_temperature=max(0.0, min(1.0, _float_setting(parsed, "ollama_temperature", 0.0))),
         report_mode=_string_setting(parsed, "report_mode", "local").lower(),
-        review_batch_size=max(1, _int_setting(parsed, "review_batch_size", 5)),
         max_review_stories=_int_setting(parsed, "max_review_stories", 5),
         max_article_paragraphs=max(1, _int_setting(parsed, "max_article_paragraphs", 4)),
         min_body_chars=max(40, _int_setting(parsed, "min_body_chars", 120)),
         max_body_chars=max(400, _int_setting(parsed, "max_body_chars", 900)),
-        review_num_predict_per_story=max(60, _int_setting(parsed, "review_num_predict_per_story", 80)),
+        review_num_predict_per_story=max(60, _int_setting(parsed, "review_num_predict_per_story", 180)),
         report_num_predict=max(120, _int_setting(parsed, "report_num_predict", 420)),
         num_ctx=max(1024, _int_setting(parsed, "num_ctx", 2048)),
         progress_log_seconds=max(5, _int_setting(parsed, "progress_log_seconds", 15)),
@@ -121,6 +120,7 @@ def load_runtime_settings(path: str | Path | None = None) -> RuntimeSettings:
         review_average_min_score=max(1, min(10, _int_setting(parsed, "review_average_min_score", 6))),
         priority_high_min_score=max(1, min(10, _int_setting(parsed, "priority_high_min_score", 8))),
         priority_breaking_min_score=max(1, min(10, _int_setting(parsed, "priority_breaking_min_score", 9))),
+        min_usable_review_ratio=max(0.0, min(1.0, _float_setting(parsed, "min_usable_review_ratio", 0.8))),
         source_config_path=_path_setting(parsed, "source_config_path", "config/source_sites.txt"),
         source_rules_path=_path_setting(parsed, "source_rules_path", "config/source_rules.txt"),
         data_dir=_path_setting(parsed, "data_dir", "data"),
@@ -130,6 +130,8 @@ def load_runtime_settings(path: str | Path | None = None) -> RuntimeSettings:
         report_subdir=_string_setting(parsed, "report_subdir", "reports"),
         user_agent=_string_setting(parsed, "user_agent", _DEFAULT_USER_AGENT),
     )
+    _validate_settings(settings)
+    return settings
 
 
 def _default_settings_path() -> Path:
@@ -210,3 +212,17 @@ def _optional_path_setting(parsed: dict[str, str], key: str) -> Path | None:
     if path.is_absolute():
         return path
     return project_root() / path
+
+
+def _validate_settings(settings: RuntimeSettings) -> None:
+    required_files = {
+        "runtime settings": settings.path,
+        "review criteria": settings.criteria_path,
+        "source config": settings.source_config_path,
+    }
+    for label, path in required_files.items():
+        if not path.exists():
+            raise FileNotFoundError(f"Configured {label} file was not found: {path}")
+
+    if settings.source_rules_path and not settings.source_rules_path.exists():
+        raise FileNotFoundError(f"Configured source rules file was not found: {settings.source_rules_path}")

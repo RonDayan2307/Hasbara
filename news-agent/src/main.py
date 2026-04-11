@@ -12,10 +12,17 @@ warnings.filterwarnings(
 from analyzer import LocalAiAnalyzer
 from memory import TopicMemory
 from report_renderer import render_report_from_reviews
+from telemetry import IngestionTelemetry
 from settings import load_runtime_settings
 from scraper import iter_stories
-from utils import is_duplicate_story
-from writer import make_run_id, write_articles_artifact, write_run_artifacts, write_stage1_report
+from utils import is_duplicate_story, shorten_for_display
+from writer import (
+    build_run_manifest,
+    make_run_id,
+    write_articles_artifact,
+    write_run_artifacts,
+    write_stage1_report,
+)
 
 _LOG_DIR = Path(__file__).parent.parent / "logs"
 _LOG_FILE = _LOG_DIR / "run.log"
@@ -24,6 +31,8 @@ _LOG_FILE = _LOG_DIR / "run.log"
 def _setup_logging() -> None:
     _LOG_DIR.mkdir(exist_ok=True)
     fmt = "%(asctime)s %(levelname)-8s %(name)s: %(message)s"
+    root_logger = logging.getLogger()
+    root_logger.handlers.clear()
     logging.basicConfig(
         level=logging.DEBUG,
         format=fmt,
@@ -37,13 +46,6 @@ def _setup_logging() -> None:
 
 
 log = logging.getLogger(__name__)
-
-
-def _source_priority(story: dict) -> int:
-    try:
-        return int(story.get("source_priority", 0))
-    except (TypeError, ValueError):
-        return 0
 
 
 def main():
@@ -60,7 +62,7 @@ def main():
     print(f"[0/7] Checking Ollama health ({settings.local_ai_model})...")
     if not analyzer.health_check():
         log.error(
-            "Ollama health check failed. The model returned empty output or could not be reached."
+            "Ollama health check failed. The model returned invalid structured output or could not be reached."
         )
         print()
         print("[ERROR] Ollama health check failed. Check that:")
@@ -74,19 +76,21 @@ def main():
     log.info("[1/7] Collecting article links...")
     print("[1/7] Collecting article links...")
     memory = TopicMemory.load(settings)
+    telemetry = IngestionTelemetry()
     stories = []
     reviewed_items = []
 
     log.info("[2/7] Processing up to %d articles one by one...", max_review)
     print(f"[2/7] Processing up to {max_review} articles one by one...")
-    for candidate in iter_stories(settings):
+    for candidate in iter_stories(settings, limit=max_review, telemetry=telemetry):
         if is_duplicate_story(candidate, stories):
             log.info("Skipping duplicate article: %s", candidate["title"])
             continue
 
         story = candidate
         stories.append(story)
-        print(f"      Processing {len(stories)}/{max_review}: {story['title'][:90]}")
+        display_title = shorten_for_display(story["title"], max_length=98)
+        print(f"      Processing {len(stories)}/{max_review}: {display_title}")
         review = analyzer.review_story(story)
         item = {
             "story": story,
@@ -100,14 +104,10 @@ def main():
             item.update(attachment)
         reviewed_items.append(item)
 
-        if max_review > 0 and len(stories) >= max_review:
-            break
-
     if not stories:
         log.error("No stories were extracted. Check selectors or site availability.")
         raise RuntimeError("No stories were extracted. Check selectors or site availability.")
 
-    stories = sorted(stories, key=_source_priority, reverse=True)
     log.info("[3/7] Finished processing %d articles", len(stories))
     print(f"[3/7] Finished processing {len(stories)} articles")
 
@@ -118,18 +118,38 @@ def main():
     log.info("[4/7] Saved AI-readable article file: %s", articles_path)
     print(f"[4/7] Saved AI-readable article file: {articles_path}")
 
-    artifacts = write_run_artifacts(settings, stories, reviewed_items, articles_path=articles_path, run_id=run_id)
+    run_manifest = build_run_manifest(
+        settings,
+        stories,
+        reviewed_items,
+        run_id=run_id,
+        source_health=telemetry.as_list(),
+        cache_namespace=analyzer.cache_namespace,
+        prompt_version=analyzer.prompt_version,
+        normalization_version=analyzer.normalization_version,
+    )
+    artifacts, run_manifest = write_run_artifacts(
+        settings,
+        stories,
+        reviewed_items,
+        run_manifest,
+        articles_path=articles_path,
+        run_id=run_id,
+    )
     log.info("[5/7] Saved review records and run manifest.")
     print("[5/7] Saved review records and run manifest.")
 
     log.info("[6/7] Synthesizing cross-source report...")
     print(f"[6/7] Synthesizing cross-source report ({settings.report_mode} mode)...")
     try:
-        report = analyzer.synthesize_report(reviewed_items)
+        report = analyzer.synthesize_report(reviewed_items, run_manifest)
     except Exception as exc:
         log.warning("Report synthesis failed; using local structured report: %s", exc)
         report = render_report_from_reviews(
-            reviewed_items, analyzer.criteria, model_name=settings.local_ai_model
+            reviewed_items,
+            analyzer.criteria,
+            run_manifest=run_manifest,
+            model_name=settings.local_ai_model,
         )
 
     log.info("[7/7] Writing report to workspace...")

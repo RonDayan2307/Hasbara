@@ -1,19 +1,34 @@
 # News Agent - Stage 1
 
-This stage collects articles from configured media sites, saves AI-readable article files, reviews them with a local Ollama model, groups relevant items into time-bounded topics, and writes a report to the Desktop.
+This project is the Stage 1 pipeline for the Hasbara monitoring system. It collects articles from configured media sites, extracts machine-readable text, reviews each story with a local Ollama model, groups relevant items into time-bounded topics, and writes a markdown report inside the main `Hasbara` workspace.
 
-## Modular Files
+The current implementation is optimized for a single analyst running locally with a local model and plain-text configuration files.
 
-The project is now controlled by plain text files:
+## Core Flow
+
+Each run goes through these stages:
+
+1. Load runtime settings and review criteria
+2. Run a strict Ollama health check
+3. Collect article candidates from configured sources in round-robin order
+4. Extract article text with source-aware rules and deterministic body extraction first
+5. Review each story one by one with the local model
+6. Fall back conservatively if structured model output fails
+7. Attach worthy stories to topic memory
+8. Write JSONL/JSON artifacts and a markdown report
+
+## Configuration Files
+
+The pipeline is controlled by plain-text files:
 
 - [runtime_settings.txt](/Users/ronday/Desktop/Hasbara/news-agent/config/runtime_settings.txt)
-  OS type, model name, output paths, batching, and thresholds.
+  Runtime behavior, model name, thresholds, paths, and output budgets.
 - [review_criteria.txt](/Users/ronday/Desktop/Hasbara/news-agent/config/review_criteria.txt)
-  The scoring questions. Each criterion is scored from 1 to 10.
+  The scoring criteria. Each criterion is asked in the form: `Does this article contain <material> material?`
 - [source_sites.txt](/Users/ronday/Desktop/Hasbara/news-agent/config/source_sites.txt)
-  Site name, homepage URL, and number of articles to analyze.
+  Source name, homepage URL, max links, language, orientation, and priority.
 - [source_rules.txt](/Users/ronday/Desktop/Hasbara/news-agent/config/source_rules.txt)
-  Optional per-source deny/prefer rules to avoid topic hubs, newsletters, and other non-article pages.
+  Per-source deny/prefer rules to avoid topic hubs, autoplay shells, newsletters, explainers, and similar noise.
 
 ## Setup
 
@@ -39,121 +54,85 @@ pip install -r requirements.txt
 python src\main.py
 ```
 
-## Runtime Settings
+## Running
 
-Edit [runtime_settings.txt](/Users/ronday/Desktop/Hasbara/news-agent/config/runtime_settings.txt#L1).
+Recommended run flow:
 
-Important fields:
+```bash
+cd /Users/ronday/Desktop/Hasbara/news-agent
+source .venv/bin/activate
+ollama pull gemma4:e4b
+ollama run gemma4:e4b "Say only OK"
+python src/main.py
+```
 
-- `os_type=macos` or `os_type=windows`
+If `ollama serve` says the port is already in use, Ollama is usually already running.
+
+## Important Runtime Settings
+
+Current important fields in [runtime_settings.txt](/Users/ronday/Desktop/Hasbara/news-agent/config/runtime_settings.txt#L1):
+
 - `local_ai_model=gemma4:e4b`
-- `output_dir=../reports`
 - `report_mode=local` or `report_mode=model`
-- `review_mode=batch` or `review_mode=single`
-- `review_batch_size=2`
-- `criteria_path=config/review_criteria.txt`
-- `source_config_path=config/source_sites.txt`
-- `source_rules_path=config/source_rules.txt`
-
-Recommended defaults:
-
-- `review_mode=single` for the current one-by-one workflow
-- `review_batch_size=2` is a safer default for Gemma than `5`
-- `max_review_stories=3` keeps the run small while tuning
-- `report_mode=local` for faster step 6
-- `output_dir=../reports` keeps generated reports inside the main `Hasbara` folder
+- `max_review_stories=6`
 - `max_article_paragraphs=4`
-- `max_body_chars=900`
-- `review_num_predict_per_story=80`
-- `num_ctx=2048`
+- `max_body_chars=800`
+- `review_num_predict_per_story=160`
+- `num_ctx=3072`
+- `min_usable_review_ratio=0.8`
+- `output_dir=../reports`
 
-## Review Criteria
-
-Edit [review_criteria.txt](/Users/ronday/Desktop/Hasbara/news-agent/config/review_criteria.txt#L1).
-
-Format:
-
-```txt
-criterion_name | material description
-```
-
-Example:
-
-```txt
-israel_political_relevance | politically relevant to Israel
-anti_zionist_content | anti-Zionist
-misinformation_risk | misleading, false, manipulative, or clearly unverified
-virality | viral, highly shareable, or likely to spread quickly
-```
-
-For each criterion, the local model is asked the equivalent of:
-
-`Does this article contain <material description> material?`
-
-and returns a score from `1` to `10`.
-
-## Source Sites
-
-Edit [source_sites.txt](/Users/ronday/Desktop/Hasbara/news-agent/config/source_sites.txt#L1).
-
-Format:
-
-```txt
-Site Name | Homepage URL | Number of Articles | Language (optional) | Orientation (optional) | Priority (optional)
-```
-
-Example:
-
-```txt
-AP World | https://apnews.com/world-news | 3 | English | wire_service | 3
-Reuters World | https://www.reuters.com/world/ | 3 | English | wire_service | 3
-```
-
-## Source Rules
-
-Edit [source_rules.txt](/Users/ronday/Desktop/Hasbara/news-agent/config/source_rules.txt#L1).
-
-Format:
-
-```txt
-Site Name | deny_path=/topic/;/newsletter/ | deny_title=daily edition;monthly update | prefer_path=/israel/;/middle-east/
-```
-
-Use this file to keep each source pointed at actual articles instead of hub pages, newsletters, or recurring roundup pages.
-For example, the default rules now block Haaretz `analysis` titles during stage 1.
-
-## What Changed In This Iteration
-
-1. Review scoring is now driven by editable text criteria.
-2. Review scores are now `1-10` per criterion instead of fixed hardcoded fields.
-3. `summary_bullets` was removed from records to reduce waste.
-4. The current run mode processes articles one by one instead of bulk review.
-5. Step 6 local synthesis now groups by topic and uses the review data rather than just echoing a fast placeholder.
-6. The review artifact is slimmer and keyed by `story_id`.
-7. Source configuration now supports a plain text site list.
-8. Source selection now rotates across sources instead of draining only the top-priority site first.
-9. Invalid model JSON is now logged with raw debug output under `data/debug/`.
-10. Empty model responses now also create debug artifacts, and reports call out heuristic fallback usage explicitly.
+The pipeline now uses sequential review only. Old batch-review knobs were removed.
 
 ## Output Files
 
 - `data/articles/YYYY-MM-DD/articles_*.jsonl`
   Extracted article text and metadata.
 - `data/reviews/YYYY-MM-DD/reviews_*.jsonl`
-  Review results keyed by `story_id`, plus topic and cross-check data.
+  Structured review results keyed by `story_id`, plus topic and cross-check data.
 - `data/runs/YYYY-MM-DD/run_*.json`
-  Run manifest with artifact paths and counts.
+  Run manifest with health status, counts, source health, and artifact paths.
 - `data/topics.json`
   Time-bounded topic memory.
+- `data/review_cache.json`
+  Namespaced cache of successful model reviews.
+- `data/debug/ollama/*`
+  Debug payloads for empty, malformed, or truncated model responses.
 - `../reports/hasbara-stage1-report-*.md`
-  Human-readable report.
+  Analyst-facing markdown report inside the main `Hasbara` folder.
 
-## Key Files
+## Trust and Degraded Runs
+
+The pipeline now distinguishes:
+
+- `model` reviews
+- `cached` reviews
+- `heuristic_fallback` reviews
+
+Runs are marked `degraded` when the usable review ratio falls below the configured threshold. Source failures and extraction failures are also recorded in the run manifest and the markdown report.
+
+## Tests
+
+Run the Stage 1 smoke tests with:
+
+```bash
+cd /Users/ronday/Desktop/Hasbara/news-agent
+source .venv/bin/activate
+PYTHONPATH=src python -m unittest discover -s tests -p "test_*.py"
+```
+
+## Key Modules
 
 - [main.py](/Users/ronday/Desktop/Hasbara/news-agent/src/main.py)
 - [settings.py](/Users/ronday/Desktop/Hasbara/news-agent/src/settings.py)
-- [criteria.py](/Users/ronday/Desktop/Hasbara/news-agent/src/criteria.py)
+- [contracts.py](/Users/ronday/Desktop/Hasbara/news-agent/src/contracts.py)
+- [telemetry.py](/Users/ronday/Desktop/Hasbara/news-agent/src/telemetry.py)
 - [scraper.py](/Users/ronday/Desktop/Hasbara/news-agent/src/scraper.py)
 - [analyzer.py](/Users/ronday/Desktop/Hasbara/news-agent/src/analyzer.py)
 - [memory.py](/Users/ronday/Desktop/Hasbara/news-agent/src/memory.py)
+- [report_renderer.py](/Users/ronday/Desktop/Hasbara/news-agent/src/report_renderer.py)
 - [writer.py](/Users/ronday/Desktop/Hasbara/news-agent/src/writer.py)
+
+## Operator Notes
+
+See [STAGE1_OPERATOR.md](/Users/ronday/Desktop/Hasbara/STAGE1_OPERATOR.md) for the operator guide and [WORKLOG.md](/Users/ronday/Desktop/Hasbara/WORKLOG.md) for the implementation log.

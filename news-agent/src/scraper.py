@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
@@ -12,7 +13,9 @@ from urllib3.util.retry import Retry
 from bs4 import BeautifulSoup
 from readability import Document
 
+from contracts import Story
 from settings import RuntimeSettings
+from telemetry import IngestionTelemetry
 from utils import clean_whitespace, project_root, stable_id
 
 log = logging.getLogger(__name__)
@@ -52,7 +55,40 @@ _GENERIC_DENY_TITLE_FRAGMENTS = (
     "watch live",
     "listen live",
     "audio edition",
+    "explainer",
+    "what to know",
+    "live blog",
 )
+
+_SOURCE_SUBTITLE_SELECTORS = {
+    "times of israel": [".article-subtitle", "h2.headline-secondary", ".the-content h2:first-of-type"],
+    "jerusalem post": [".article-sub-title", ".article-header h2"],
+    "haaretz english": ["[data-testid='article-sub-title']", ".article-header-subtitle", "header h2"],
+    "ynet news": [".art_header_sub_title", ".sub-title"],
+    "ap world": [".Page-deck", ".RichTextStoryBody-deck"],
+    "bbc middle east": ["[data-component='headline-block'] p", "article header p"],
+    "guardian middle east": [".content__standfirst p", "[data-gu-name='standfirst'] p"],
+}
+
+_GENERIC_SUBTITLE_SELECTORS = [
+    ".article-subtitle",
+    ".deck",
+    ".standfirst",
+    "h2.subtitle",
+    "[data-testid='article-subtitle']",
+    ".article-summary",
+    "header h2",
+]
+
+_SOURCE_BODY_SELECTORS = {
+    "times of israel": ["article p", ".the-content p", ".entry-content p"],
+    "jerusalem post": ["article p", ".article-body p", ".itemFullText p"],
+    "haaretz english": ["article p", "[data-testid='article-body'] p"],
+    "ynet news": ["article p", ".art_body p", ".article-body__content p"],
+    "ap world": ["article p", "[data-key='article'] p", ".RichTextStoryBody p"],
+    "bbc middle east": ["[data-component='text-block'] p", "main article p", "article p"],
+    "guardian middle east": ["article p", "[id='maincontent'] p", ".article-body-commercial-selector p"],
+}
 
 # Retries on transient errors; exponential backoff: 1s, 2s, 4s between attempts.
 _RETRY = Retry(
@@ -156,17 +192,38 @@ def _load_sources_from_text(path: Path) -> list[dict]:
         except ValueError:
             max_links = 5
 
-        results.append(
-            {
-                "name": parts[0],
-                "homepage": homepage,
-                "base_url": base_url,
-                "max_links": max_links,
-                "language": parts[3] if len(parts) >= 4 else "unknown",
-                "orientation": parts[4] if len(parts) >= 5 else "unknown",
-                "priority": int(parts[5]) if len(parts) >= 6 and parts[5].isdigit() else 3,
-            }
-        )
+        source = {
+            "name": parts[0],
+            "homepage": homepage,
+            "base_url": base_url,
+            "max_links": max_links,
+            "language": parts[3] if len(parts) >= 4 else "unknown",
+            "orientation": parts[4] if len(parts) >= 5 else "unknown",
+            "priority": int(parts[5]) if len(parts) >= 6 and parts[5].isdigit() else 3,
+            "fallback_homepages": [],
+            "warn_on_failure": True,
+        }
+
+        for part in parts[6:]:
+            if "=" not in part:
+                continue
+            key, value = part.split("=", 1)
+            normalized_key = clean_whitespace(key).lower().replace(" ", "_")
+            normalized_value = clean_whitespace(value)
+            if not normalized_value:
+                continue
+            if normalized_key in {"fallback_homepages", "homepage_fallbacks"}:
+                source["fallback_homepages"] = [
+                    clean_whitespace(item)
+                    for item in normalized_value.split(";")
+                    if clean_whitespace(item)
+                ]
+            elif normalized_key in {"warn_on_failure", "emit_failure_warning"}:
+                source["warn_on_failure"] = normalized_value.lower() not in {"0", "false", "no", "off"}
+            else:
+                source[normalized_key] = normalized_value
+
+        results.append(source)
     return results
 
 
@@ -195,14 +252,33 @@ def fetch_html(session: requests.Session, url: str, timeout: int = 20) -> str:
     return response.text
 
 
-def extract_homepage_links(source: dict, session: requests.Session) -> list[dict]:
-    log.info("Fetching homepage: %s", source["homepage"])
-    html = fetch_html(session, source["homepage"])
+def extract_homepage_links(source: dict, session: requests.Session, homepage_url: str | None = None) -> list[dict]:
+    homepage = homepage_url or source["homepage"]
+    log.info("Fetching homepage: %s", homepage)
+    html = fetch_html(session, homepage)
     soup = BeautifulSoup(html, "lxml")
 
-    if source.get("link_selector"):
-        return _extract_links_by_selector(source, soup)
-    return _extract_links_generic(source, soup)
+    effective_source = dict(source)
+    effective_source["homepage"] = homepage
+    parsed = urlparse(homepage)
+    if parsed.scheme and parsed.netloc:
+        effective_source["base_url"] = f"{parsed.scheme}://{parsed.netloc}"
+
+    if effective_source.get("link_selector"):
+        return _extract_links_by_selector(effective_source, soup)
+    return _extract_links_generic(effective_source, soup)
+
+
+def _fetch_source_links(source: dict, session: requests.Session) -> tuple[list[dict], str]:
+    candidates = [source["homepage"], *source.get("fallback_homepages", [])]
+    errors: list[str] = []
+    for homepage in candidates:
+        try:
+            links = extract_homepage_links(source, session, homepage_url=homepage)
+            return links, homepage
+        except Exception as exc:
+            errors.append(f"{homepage} -> {exc}")
+    raise RuntimeError(" | ".join(errors) if errors else "no homepage candidates were available")
 
 
 def _base_source_fields(source: dict) -> dict:
@@ -388,6 +464,40 @@ def _extract_metrics(_soup: BeautifulSoup) -> dict:
     }
 
 
+def _extract_subtitle(soup: BeautifulSoup, source: dict | None) -> str | None:
+    """Extract subtitle/secondary title from the article page."""
+    # Try source-specific selectors first
+    if source:
+        name = _normalize_source_name(source.get("name", ""))
+        source_selectors = _SOURCE_SUBTITLE_SELECTORS.get(name, [])
+        for selector in source_selectors:
+            elements = soup.select(selector)
+            for element in elements:
+                text = clean_whitespace(element.get_text(" ", strip=True))
+                if text and len(text) > 10:
+                    return text
+
+    # Try generic subtitle selectors
+    for selector in _GENERIC_SUBTITLE_SELECTORS:
+        elements = soup.select(selector)
+        for element in elements:
+            text = clean_whitespace(element.get_text(" ", strip=True))
+            if text and len(text) > 10:
+                return text
+
+    # Compare og:title vs page title — subtitle may be the difference
+    og_title = _extract_meta(soup, "og:title")
+    page_title = clean_whitespace(soup.title.get_text(" ", strip=True) if soup.title else "")
+    if og_title and page_title and og_title != page_title:
+        # If one is substantially longer, it may contain the subtitle
+        if len(og_title) > len(page_title) + 15:
+            extra = og_title.replace(page_title, "").strip(" -|:")
+            if extra and len(extra) > 10:
+                return extra
+
+    return None
+
+
 def extract_article(
     url: str,
     session: requests.Session,
@@ -406,11 +516,13 @@ def extract_article(
     if og_type in {"website", "profile"}:
         raise SkippedArticle(f"unsupported og:type {og_type}")
 
-    doc = Document(html)
-    article_html = doc.summary()
-    soup = BeautifulSoup(article_html, "lxml")
-    paragraphs = [clean_whitespace(p.get_text(" ", strip=True)) for p in soup.select("p")]
-    paragraphs = [p for p in paragraphs if len(p) > 40]
+    paragraphs = _extract_source_paragraphs(full_soup, source)
+    if not paragraphs:
+        doc = Document(html)
+        article_html = doc.summary()
+        soup = BeautifulSoup(article_html, "lxml")
+        paragraphs = [clean_whitespace(p.get_text(" ", strip=True)) for p in soup.select("p")]
+        paragraphs = [p for p in paragraphs if len(p) > 40]
     if not paragraphs:
         raise SkippedArticle("no article-like paragraphs extracted")
 
@@ -425,6 +537,7 @@ def extract_article(
     )
     return {
         "body": "\n".join(paragraphs[:settings.max_article_paragraphs]),
+        "subtitle": _extract_subtitle(full_soup, source),
         "canonical_url": canonical,
         "published_at": published_at,
         "description": _extract_meta(full_soup, "og:description", "description"),
@@ -436,7 +549,11 @@ def extract_article_text(url: str) -> str:
     raise RuntimeError("Use extract_article(url, session, settings) instead.")
 
 
-def iter_stories(settings: RuntimeSettings, limit: int | None = None):
+def iter_stories(
+    settings: RuntimeSettings,
+    limit: int | None = None,
+    telemetry: IngestionTelemetry | None = None,
+):
     source_rules = load_source_rules(settings.source_rules_path)
     sources = [
         _apply_source_rules(source, source_rules)
@@ -448,7 +565,16 @@ def iter_stories(settings: RuntimeSettings, limit: int | None = None):
     ]
     collected_at = _utc_now()
     session = _make_session()
-    session.headers.update({"User-Agent": settings.user_agent})
+    session.headers.update(
+        {
+            "User-Agent": settings.user_agent,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+            "Upgrade-Insecure-Requests": "1",
+        }
+    )
     yielded = 0
     source_states = [
         {
@@ -475,10 +601,23 @@ def iter_stories(settings: RuntimeSettings, limit: int | None = None):
 
             if state["links"] is None:
                 try:
-                    state["links"] = extract_homepage_links(source, session)
+                    state["links"], actual_homepage = _fetch_source_links(source, session)
+                    if actual_homepage != source["homepage"]:
+                        log.info(
+                            "Using fallback homepage for %s: %s",
+                            source.get("name", "unknown"),
+                            actual_homepage,
+                        )
+                    if telemetry is not None:
+                        telemetry.record_homepage_success(source, links_found=len(state["links"] or []))
                 except Exception as exc:
-                    log.warning("Failed fetching source homepage: %s -> %s", source.get("name", "unknown"), exc)
-                    print(f"[WARN] Failed source homepage: {source.get('name', 'unknown')} -> {exc}")
+                    emit_warning = bool(source.get("warn_on_failure", True))
+                    log_fn = log.warning if emit_warning else log.info
+                    log_fn("Failed fetching source homepage: %s -> %s", source.get("name", "unknown"), exc)
+                    if emit_warning:
+                        print(f"[WARN] Failed source homepage: {source.get('name', 'unknown')} -> {exc}")
+                    if telemetry is not None:
+                        telemetry.record_homepage_failure(source, str(exc))
                     state["exhausted"] = True
                     continue
 
@@ -496,10 +635,14 @@ def iter_stories(settings: RuntimeSettings, limit: int | None = None):
                 body = article["body"]
                 if len(body) < settings.min_body_chars:
                     log.info("Skipping short or thin article: %s", item["url"])
+                    if telemetry is not None:
+                        telemetry.record_candidate_skip(source, "short or thin article body")
                     continue
 
                 url = article.get("canonical_url") or item["url"]
                 yielded += 1
+                if telemetry is not None:
+                    telemetry.record_story_collected(source)
                 yield {
                     "id": stable_id(url, item["title"]),
                     "source": item["source"],
@@ -507,25 +650,114 @@ def iter_stories(settings: RuntimeSettings, limit: int | None = None):
                     "source_orientation": item.get("source_orientation", "unknown"),
                     "source_priority": item.get("source_priority", 3),
                     "title": item["title"],
+                    "subtitle": article.get("subtitle"),
                     "url": url,
                     "body": body,
                     "description": article.get("description"),
                     "published_at": article.get("published_at"),
                     "collected_at": collected_at,
                     "metrics": article.get("metrics", {}),
-                }
+                }  # type: Story
                 log.debug("Scraped: %s", item["title"])
             except SkippedArticle as exc:
                 log.info("Skipping non-article candidate: %s -> %s", item["url"], exc)
+                if telemetry is not None:
+                    telemetry.record_candidate_skip(source, str(exc))
             except Exception as exc:
                 log.warning("Failed parsing article: %s -> %s", item["url"], exc)
                 print(f"[WARN] Failed parsing article: {item['url']} -> {exc}")
+                if telemetry is not None:
+                    telemetry.record_extraction_failure(source, str(exc))
 
         if active_sources == 0 or not made_progress:
             return
 
 
-def collect_stories(settings: RuntimeSettings) -> list[dict]:
-    stories = list(iter_stories(settings))
+def collect_stories(
+    settings: RuntimeSettings,
+    *,
+    telemetry: IngestionTelemetry | None = None,
+) -> list[Story]:
+    stories = list(iter_stories(settings, telemetry=telemetry))
     log.info("Total stories collected: %d", len(stories))
     return stories
+
+
+def _extract_source_paragraphs(soup: BeautifulSoup, source: dict | None) -> list[str]:
+    selectors = _selectors_for_source(source)
+    for selector in selectors:
+        paragraphs = [
+            clean_whitespace(p.get_text(" ", strip=True))
+            for p in soup.select(selector)
+            if clean_whitespace(p.get_text(" ", strip=True))
+        ]
+        paragraphs = [paragraph for paragraph in paragraphs if len(paragraph) > 40]
+        if paragraphs:
+            return _dedupe_paragraphs(paragraphs)
+
+    return _extract_json_ld_article_body(soup)
+
+
+def _selectors_for_source(source: dict | None) -> list[str]:
+    if not source:
+        return []
+    name = _normalize_source_name(source.get("name", ""))
+    selectors = list(_SOURCE_BODY_SELECTORS.get(name, []))
+    selectors.extend(["[itemprop='articleBody'] p", "main article p", "article p"])
+    seen = []
+    for selector in selectors:
+        if selector not in seen:
+            seen.append(selector)
+    return seen
+
+
+def _extract_json_ld_article_body(soup: BeautifulSoup) -> list[str]:
+    for script in soup.select("script[type='application/ld+json']"):
+        raw_json = clean_whitespace(script.get_text(" ", strip=True))
+        if not raw_json:
+            continue
+        try:
+            payload = json.loads(raw_json)
+        except json.JSONDecodeError:
+            continue
+        article_body = _find_article_body(payload)
+        if article_body:
+            parts = [
+                clean_whitespace(part)
+                for part in re.split(r"(?:\n{2,}|(?<=[.!?])\s{2,})", article_body)
+                if clean_whitespace(part)
+            ]
+            parts = [part for part in parts if len(part) > 40]
+            if parts:
+                return _dedupe_paragraphs(parts)
+    return []
+
+
+def _find_article_body(payload: object) -> str | None:
+    if isinstance(payload, dict):
+        article_body = payload.get("articleBody")
+        if isinstance(article_body, str) and clean_whitespace(article_body):
+            return clean_whitespace(article_body)
+        graph = payload.get("@graph")
+        if graph is not None:
+            found = _find_article_body(graph)
+            if found:
+                return found
+        for value in payload.values():
+            found = _find_article_body(value)
+            if found:
+                return found
+    elif isinstance(payload, list):
+        for item in payload:
+            found = _find_article_body(item)
+            if found:
+                return found
+    return None
+
+
+def _dedupe_paragraphs(paragraphs: list[str]) -> list[str]:
+    seen: list[str] = []
+    for paragraph in paragraphs:
+        if paragraph not in seen:
+            seen.append(paragraph)
+    return seen

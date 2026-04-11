@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
+from contracts import ReviewedItem, RunManifest, Story
 from settings import RuntimeSettings
-from utils import project_root, safe_filename
+from utils import safe_filename
 
 
 def _timestamp() -> str:
@@ -18,13 +21,17 @@ def make_run_id() -> str:
 
 def _write_jsonl(path: Path, rows: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="\n") as f:
+    with path.open("w", encoding="utf-8", newline="\n") as handle:
         for row in rows:
-            f.write(json.dumps(row, ensure_ascii=False))
-            f.write("\n")
+            handle.write(json.dumps(row, ensure_ascii=False))
+            handle.write("\n")
 
 
-def write_articles_artifact(settings: RuntimeSettings, stories: list[dict], run_id: str | None = None) -> Path:
+def write_articles_artifact(
+    settings: RuntimeSettings,
+    stories: list[Story],
+    run_id: str | None = None,
+) -> Path:
     run_id = run_id or _timestamp()
     date_part = run_id[:10]
     articles_path = settings.articles_dir / date_part / f"articles_{run_id}.jsonl"
@@ -32,7 +39,77 @@ def write_articles_artifact(settings: RuntimeSettings, stories: list[dict], run_
     return articles_path
 
 
-def _review_row(item: dict) -> dict:
+def build_run_manifest(
+    settings: RuntimeSettings,
+    stories: list[Story],
+    reviewed_items: list[ReviewedItem],
+    *,
+    run_id: str,
+    source_health: list[dict[str, Any]],
+    cache_namespace: str,
+    prompt_version: str,
+    normalization_version: str,
+    artifacts: dict[str, str] | None = None,
+) -> RunManifest:
+    worthy_count = sum(1 for item in reviewed_items if item.get("review", {}).get("worth_reviewing"))
+    fresh_model_reviews = sum(
+        1 for item in reviewed_items if item.get("review", {}).get("review_method") == "model"
+    )
+    cached_reviews = sum(
+        1 for item in reviewed_items if item.get("review", {}).get("review_method") == "cached"
+    )
+    fallback_reviews = sum(
+        1
+        for item in reviewed_items
+        if item.get("review", {}).get("review_method") == "heuristic_fallback"
+    )
+    reviewed_count = len(reviewed_items)
+    usable_reviews = fresh_model_reviews + cached_reviews
+    usable_review_ratio = round((usable_reviews / reviewed_count), 3) if reviewed_count else 0.0
+    source_failures = sum(1 for item in source_health if item.get("status") == "failed")
+    article_extraction_failures = sum(
+        int(item.get("article_extraction_failures", 0)) for item in source_health
+    )
+    candidate_skips = sum(int(item.get("candidate_skips", 0)) for item in source_health)
+    status = "ok"
+    if reviewed_count == 0 or usable_review_ratio < settings.min_usable_review_ratio:
+        status = "degraded"
+
+    return {
+        "schema_version": 3,
+        "status": status,
+        "run_id": run_id,
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "settings_file": str(settings.path),
+        "source_config_file": str(settings.source_config_path),
+        "source_rules_file": str(settings.source_rules_path),
+        "criteria_file": str(settings.criteria_path),
+        "artifacts": artifacts or {},
+        "counts": {
+            "collected_articles": len(stories),
+            "reviewed_articles": reviewed_count,
+            "worth_reviewing": worthy_count,
+            "fresh_model_reviews": fresh_model_reviews,
+            "cached_reviews": cached_reviews,
+            "heuristic_fallback_reviews": fallback_reviews,
+            "usable_reviews": usable_reviews,
+            "usable_review_ratio": usable_review_ratio,
+            "source_failures": source_failures,
+            "article_extraction_failures": article_extraction_failures,
+            "candidate_skips": candidate_skips,
+        },
+        "source_health": source_health,
+        "reviewed_story_ids": [item["story"].get("id") for item in reviewed_items],
+        "report_mode": settings.report_mode,
+        "local_ai_model": settings.local_ai_model,
+        "min_usable_review_ratio": settings.min_usable_review_ratio,
+        "cache_namespace": cache_namespace,
+        "prompt_version": prompt_version,
+        "normalization_version": normalization_version,
+    }
+
+
+def _review_row(item: ReviewedItem) -> dict:
     review = item["review"]
     topic = item.get("topic", {})
     return {
@@ -46,80 +123,48 @@ def _review_row(item: dict) -> dict:
             "window_end": topic.get("window_end"),
             "source_count": topic.get("source_count"),
             "item_count": topic.get("item_count"),
+            "highest_priority": topic.get("highest_priority"),
         },
         "cross_check": item.get("cross_check"),
     }
 
 
-def _run_manifest(
-    settings: RuntimeSettings,
-    stories: list[dict],
-    reviewed_items: list[dict],
-    artifacts: dict[str, Path],
-    run_id: str,
-) -> dict:
-    worthy_count = sum(1 for item in reviewed_items if item.get("review", {}).get("worth_reviewing"))
-    model_review_count = sum(1 for item in reviewed_items if item.get("review", {}).get("review_method") == "model")
-    cached_review_count = sum(1 for item in reviewed_items if item.get("review", {}).get("review_method") == "cached")
-    fallback_review_count = sum(1 for item in reviewed_items if item.get("review", {}).get("review_method") == "heuristic_fallback")
-    usable_reviews = model_review_count + cached_review_count
-    status = "degraded" if usable_reviews == 0 and len(reviewed_items) > 0 else "ok"
-    return {
-        "schema_version": 2,
-        "status": status,
-        "run_id": run_id,
-        "generated_at": datetime.now().isoformat(timespec="seconds"),
-        "settings_file": str(settings.path),
-        "source_config_file": str(settings.source_config_path),
-        "source_rules_file": str(settings.source_rules_path),
-        "criteria_file": str(settings.criteria_path),
-        "artifacts": {name: str(path) for name, path in artifacts.items()},
-        "counts": {
-            "collected_articles": len(stories),
-            "reviewed_articles": len(reviewed_items),
-            "worth_reviewing": worthy_count,
-            "model_reviews": model_review_count,
-            "cached_reviews": cached_review_count,
-            "heuristic_fallback_reviews": fallback_review_count,
-        },
-        "reviewed_story_ids": [item["story"].get("id") for item in reviewed_items],
-        "report_mode": settings.report_mode,
-        "review_mode": settings.review_mode,
-    }
-
-
 def write_run_artifacts(
     settings: RuntimeSettings,
-    stories: list[dict],
-    reviewed_items: list[dict],
+    stories: list[Story],
+    reviewed_items: list[ReviewedItem],
+    run_manifest: RunManifest,
+    *,
     articles_path: Path | None = None,
     run_id: str | None = None,
-) -> dict[str, Path]:
+) -> tuple[dict[str, Path], RunManifest]:
     run_id = run_id or _timestamp()
     date_part = run_id[:10]
     articles_path = articles_path or settings.articles_dir / date_part / f"articles_{run_id}.jsonl"
     reviews_path = settings.reviews_dir / date_part / f"reviews_{run_id}.jsonl"
-    combined_path = settings.runs_dir / date_part / f"run_{run_id}.json"
+    manifest_path = settings.runs_dir / date_part / f"run_{run_id}.json"
 
     if not articles_path.exists():
         _write_jsonl(articles_path, stories)
     _write_jsonl(reviews_path, [_review_row(item) for item in reviewed_items])
 
-    combined_path.parent.mkdir(parents=True, exist_ok=True)
     artifacts = {
         "articles": articles_path,
         "reviews": reviews_path,
-        "run": combined_path,
+        "run": manifest_path,
     }
-    combined_path.write_text(
-        json.dumps(_run_manifest(settings, stories, reviewed_items, artifacts, run_id), ensure_ascii=False, indent=2),
+    manifest_to_write = deepcopy(run_manifest)
+    manifest_to_write["artifacts"] = {name: str(path) for name, path in artifacts.items()}
+
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(
+        json.dumps(manifest_to_write, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    return artifacts, manifest_to_write
 
-    return artifacts
 
-
-def _format_sources(reviewed_items: list[dict]) -> list[str]:
+def _format_sources(reviewed_items: list[ReviewedItem]) -> list[str]:
     lines = []
     for item in reviewed_items:
         story = item["story"]
@@ -138,6 +183,11 @@ def _format_sources(reviewed_items: list[dict]) -> list[str]:
             f"  Language: {review.get('source_language', 'unknown')} | "
             f"Orientation: {review.get('political_orientation', 'unknown')}"
         )
+        lines.append(
+            f"  Review method: {review.get('review_method', 'unknown')} | "
+            f"Quality: {review.get('review_quality', 'unknown')}"
+        )
+        lines.append(f"  Reason: {review.get('review_reason', '')}")
         lines.append("")
     return lines
 
@@ -145,7 +195,7 @@ def _format_sources(reviewed_items: list[dict]) -> list[str]:
 def write_stage1_report(
     settings: RuntimeSettings,
     report_text: str,
-    reviewed_items: list[dict],
+    reviewed_items: list[ReviewedItem],
     artifacts: dict[str, Path],
 ) -> Path:
     outdir = settings.report_output_dir()
@@ -177,35 +227,6 @@ def write_stage1_report(
         "",
         *_format_sources(reviewed_items),
     ]
-
-    outpath.write_text("\n".join(lines), encoding="utf-8")
-    return outpath
-
-
-def write_digest(summary: str, stories: list[dict]) -> Path:
-    desktop = project_root() / "reports"
-    desktop.mkdir(parents=True, exist_ok=True)
-    filename = f"news_digest_{datetime.now().strftime('%Y-%m-%d')}.txt"
-    outpath = desktop / filename
-
-    lines = [
-        "Daily News Digest",
-        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-        "",
-        "=" * 80,
-        "",
-        summary,
-        "",
-        "=" * 80,
-        "",
-        "Sources Used",
-        ""
-    ]
-
-    for story in stories:
-        lines.append(f"- {story['source']}: {story['title']}")
-        lines.append(f"  {story['url']}")
-        lines.append("")
 
     outpath.write_text("\n".join(lines), encoding="utf-8")
     return outpath

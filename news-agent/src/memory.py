@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from contracts import ReviewResult, Story, TopicAttachment
 from settings import RuntimeSettings
 from utils import clean_whitespace, project_root, safe_filename, similarity
 
@@ -40,6 +41,46 @@ def _topic_id(name: str, created_at: datetime) -> str:
     return f"{date_part}-{safe_filename(name)[:48] or 'topic'}"
 
 
+def _story_time(story: Story, review: ReviewResult | None = None) -> datetime | None:
+    return (
+        _parse_time(story.get("published_at"))
+        or _parse_time(story.get("collected_at"))
+        or _parse_time(review.get("reviewed_at") if review else None)
+    )
+
+
+def _mention_overlap(a: list[str], b: list[str]) -> float:
+    a_set = {clean_whitespace(value).lower() for value in a if clean_whitespace(value)}
+    b_set = {clean_whitespace(value).lower() for value in b if clean_whitespace(value)}
+    if not a_set or not b_set:
+        return 0.0
+    return len(a_set & b_set) / len(a_set | b_set)
+
+
+def _criteria_overlap(review: ReviewResult, topic: dict[str, Any]) -> float:
+    """Score boost when the new review shares high-scoring criteria with existing topic items."""
+    review_scores = {
+        cs["criterion"]: cs["score"]
+        for cs in review.get("criteria_scores", [])
+        if cs.get("score", 0) > 5
+    }
+    if not review_scores:
+        return 0.0
+
+    topic_high_criteria: set[str] = set()
+    for item in topic.get("items", []):
+        for cs in item.get("criteria_scores", []):
+            if cs.get("score", 0) > 5:
+                topic_high_criteria.add(cs["criterion"])
+
+    if not topic_high_criteria:
+        return 0.0
+
+    shared = set(review_scores.keys()) & topic_high_criteria
+    possible = set(review_scores.keys()) | topic_high_criteria
+    return len(shared) / len(possible) if possible else 0.0
+
+
 class TopicMemory:
     def __init__(self, settings: RuntimeSettings, path: Path | None = None) -> None:
         self.settings = settings
@@ -66,10 +107,10 @@ class TopicMemory:
         }
         self.path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    def attach(self, story: dict[str, Any], review: dict[str, Any]) -> dict[str, Any]:
+    def attach(self, story: Story, review: ReviewResult) -> TopicAttachment:
         now = _utc_now()
         name = clean_whitespace(review.get("topic_hint") or story.get("title") or "Untitled topic")
-        topic = self._find_active_topic(name, now)
+        topic = self._find_active_topic(name, story, review, now)
         status = "existing"
 
         if topic is None:
@@ -97,6 +138,8 @@ class TopicMemory:
             "priority": review.get("priority"),
             "summary": review.get("summary"),
             "claims_to_verify": review.get("claims_to_verify", []),
+            "mentions": review.get("mentions", []),
+            "criteria_scores": review.get("criteria_scores", []),
         }
 
         existing_ids = {entry.get("story_id") for entry in topic.setdefault("items", [])}
@@ -114,19 +157,23 @@ class TopicMemory:
             "cross_check": self._cross_check(topic, story),
         }
 
-    def _find_active_topic(self, name: str, now: datetime) -> dict[str, Any] | None:
+    def _find_active_topic(
+        self,
+        name: str,
+        story: Story,
+        review: ReviewResult,
+        now: datetime,
+    ) -> dict[str, Any] | None:
         best_topic = None
         best_score = 0.0
+        story_time = _story_time(story, review)
 
         for topic in self.topics:
             window_end = _parse_time(topic.get("window_end"))
             if window_end and now > window_end:
                 continue
 
-            topic_name = topic.get("name", "")
-            title_score = similarity(name, topic_name)
-            overlap_score = _token_overlap(name, topic_name)
-            score = max(title_score, overlap_score)
+            score = self._topic_match_score(topic, name, story, review, story_time)
 
             if score > best_score:
                 best_score = score
@@ -135,6 +182,42 @@ class TopicMemory:
         if best_score >= self.settings.topic_match_threshold:
             return best_topic
         return None
+
+    def _topic_match_score(
+        self,
+        topic: dict[str, Any],
+        name: str,
+        story: Story,
+        review: ReviewResult,
+        story_time: datetime | None,
+    ) -> float:
+        topic_name = clean_whitespace(topic.get("name", ""))
+        title_score = similarity(name, topic_name)
+        hint_overlap = _token_overlap(name, topic_name)
+        title_overlap = _token_overlap(story.get("title", ""), topic_name)
+        url_overlap = _token_overlap(story.get("url", ""), topic_name)
+        mention_score = _mention_overlap(review.get("mentions", []), topic.get("mentions", []))
+        topic_time = _parse_time(topic.get("updated_at")) or _parse_time(topic.get("created_at"))
+        time_score = 0.0
+        if story_time and topic_time:
+            delta_hours = abs((story_time - topic_time).total_seconds()) / 3600
+            if delta_hours <= 24:
+                time_score = 1.0
+            elif delta_hours <= 72:
+                time_score = 0.7
+            elif delta_hours <= 168:
+                time_score = 0.4
+
+        criteria_score = _criteria_overlap(review, topic)
+
+        return round(
+            (0.35 * max(title_score, hint_overlap))
+            + (0.20 * max(title_overlap, url_overlap))
+            + (0.22 * mention_score)
+            + (0.13 * time_score)
+            + (0.10 * criteria_score),
+            3,
+        )
 
     def _new_topic(self, name: str, now: datetime) -> dict[str, Any]:
         window_end = now + timedelta(days=self.settings.topic_window_days)

@@ -1,11 +1,26 @@
-from difflib import SequenceMatcher
 import hashlib
 import re
+from difflib import SequenceMatcher
 from pathlib import Path
 
 
 def clean_whitespace(text: str) -> str:
     return re.sub(r"\s+", " ", text or "").strip()
+
+
+def shorten_for_display(text: str, *, max_length: int = 80) -> str:
+    normalized = clean_whitespace(text)
+    if len(normalized) <= max_length:
+        return normalized
+
+    if max_length <= 3:
+        return normalized[:max_length]
+
+    cutoff = max_length - 3
+    shortened = normalized[:cutoff].rsplit(" ", 1)[0].strip()
+    if not shortened:
+        shortened = normalized[:cutoff].strip()
+    return f"{shortened}..."
 
 
 def similarity(a: str, b: str) -> float:
