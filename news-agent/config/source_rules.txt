@@ -2,7 +2,7 @@
 # Format:
 # Source Name | deny_path=/topic/;/newsletter/ | deny_title=daily edition;monthly update | prefer_path=/israel/;/middle-east/
 
-Times of Israel | deny_path=/topic/;/tag/;/tech-israel-edition/;/real-estate-israel-monthly-update/;/daily-edition/;/newsletter/;/blogs/;/podcasts/;/video/ | deny_title=daily edition;monthly update;tech israel updates;real estate israel;analysis;explainer | prefer_path=/israel/;/middle-east/;/liveblog/
+Times of Israel | deny_path=/topic/;/tag/;/tech-israel-edition/;/real-estate-israel-monthly-update/;/daily-edition/;/newsletter/;/blogs/;/podcasts/;/video/;/spotlight/ | deny_title=daily edition;monthly update;tech israel updates;real estate israel;analysis;explainer | prefer_path=/israel/;/middle-east/;/liveblog/
 Jerusalem Post | deny_path=/tag/;/blogs/;/podcasts/;/video/;/magazine/;/newsletter/ | deny_title=podcast;newsletter;frontlines;analysis;explainer | prefer_path=/israel-news/;/breaking-news/
 Haaretz English | deny_path=/opinion/;/blogs/;/podcasts/;/newsletters/ | deny_title=podcast;newsletter;analysis;explainer | prefer_path=/israel-news/;/middle-east-news/
 Ynet News | deny_path=/category/;/magazine/;/health/;/food/ | deny_title=weekend;magazine;analysis;explainer | prefer_path=/article/

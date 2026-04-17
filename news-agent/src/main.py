@@ -10,8 +10,10 @@ warnings.filterwarnings(
 )
 
 from analyzer import LocalAiAnalyzer
+from article_filter import ArticleFilter
 from memory import TopicMemory
 from report_renderer import render_report_from_reviews
+from seen_urls import SeenUrlStore
 from telemetry import IngestionTelemetry
 from settings import load_runtime_settings
 from scraper import iter_stories
@@ -55,7 +57,7 @@ def main():
     log.info("Using runtime settings: %s", settings.path)
     run_id = make_run_id()
     analyzer = LocalAiAnalyzer(settings)
-    max_review = settings.max_review_stories
+    _COLLECTION_WINDOW_HOURS = 2
 
     # Step 0: health check — abort early if Ollama is not responding
     log.info("[0/7] Checking Ollama health (%s)...", settings.local_ai_model)
@@ -76,22 +78,68 @@ def main():
     log.info("[1/7] Collecting article links...")
     print("[1/7] Collecting article links...")
     memory = TopicMemory.load(settings)
+    article_filter = ArticleFilter.load(settings.rejected_urls_path)
+    seen_url_store = SeenUrlStore.load(settings.seen_urls_path)
     telemetry = IngestionTelemetry()
     stories = []
     reviewed_items = []
 
-    log.info("[2/7] Processing up to %d articles one by one...", max_review)
-    print(f"[2/7] Processing up to {max_review} articles one by one...")
-    for candidate in iter_stories(settings, limit=max_review, telemetry=telemetry):
+    log.info(
+        "[2/7] Processing all articles from the last %d hours (seen: %d URLs already checked)...",
+        _COLLECTION_WINDOW_HOURS,
+        seen_url_store.count,
+    )
+    print(
+        f"[2/7] Processing articles from the last {_COLLECTION_WINDOW_HOURS}h "
+        f"({seen_url_store.count} URLs already checked)..."
+    )
+    for candidate in iter_stories(
+        settings,
+        telemetry=telemetry,
+        window_hours=_COLLECTION_WINDOW_HOURS,
+        seen_url_store=seen_url_store,
+    ):
         if is_duplicate_story(candidate, stories):
             log.info("Skipping duplicate article: %s", candidate["title"])
             continue
 
+        # -- Pre-processing filter: skip URLs previously rejected (avg < 3) --
+        if article_filter.is_rejected(candidate["url"]):
+            log.info(
+                "Skipping previously rejected URL (avg < 3): %s", candidate["url"]
+            )
+            continue
+
+        # -- Per-source context: log how many from this source were rejected --
+        source_name = candidate.get("source", "unknown")
+        rejected_from_source = article_filter.get_source_rejected_count(source_name)
+        if rejected_from_source:
+            log.info(
+                "Source context: %s has %d previously rejected URL(s) on record.",
+                source_name,
+                rejected_from_source,
+            )
+
         story = candidate
         stories.append(story)
         display_title = shorten_for_display(story["title"], max_length=98)
-        print(f"      Processing {len(stories)}/{max_review}: {display_title}")
+        print(f"      Processing #{len(stories)}: {display_title}")
         review = analyzer.review_story(story)
+
+        # -- Post-review filter: classify by score thresholds --
+        decision = article_filter.classify(review)
+        article_filter.record(story, review, decision)
+
+        if decision == "save" and not review["worth_reviewing"]:
+            # Scores are high enough to override the standard worthy threshold
+            review["worth_reviewing"] = True
+            log.info(
+                "Filter override: marking article worth reviewing (avg=%.1f, max=%.0f): %s",
+                review["score_summary"]["average_score"],
+                review["score_summary"]["max_score"],
+                shorten_for_display(story["title"], max_length=68),
+            )
+
         item = {
             "story": story,
             "review": review,
@@ -113,6 +161,8 @@ def main():
 
     memory.save()
     analyzer.cache.save()
+    article_filter.save()
+    seen_url_store.save()
 
     articles_path = write_articles_artifact(settings, stories, run_id=run_id)
     log.info("[4/7] Saved AI-readable article file: %s", articles_path)

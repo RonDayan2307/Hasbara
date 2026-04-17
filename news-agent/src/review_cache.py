@@ -3,10 +3,13 @@ from __future__ import annotations
 import json
 import logging
 from copy import deepcopy
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 log = logging.getLogger(__name__)
+
+_TTL_DAYS = 14
 
 
 class ReviewCache:
@@ -73,6 +76,27 @@ class ReviewCache:
 
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=_TTL_DAYS)
+        active: dict[str, dict[str, Any]] = {}
+        pruned = 0
+        for story_id, review in self._cache.items():
+            reviewed_at = review.get("reviewed_at")
+            if reviewed_at:
+                try:
+                    dt = datetime.fromisoformat(reviewed_at.replace("Z", "+00:00"))
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    if dt >= cutoff:
+                        active[story_id] = review
+                    else:
+                        pruned += 1
+                except ValueError:
+                    active[story_id] = review
+            else:
+                active[story_id] = review
+        if pruned:
+            log.info("Pruned %d stale review cache entries (older than %d days).", pruned, _TTL_DAYS)
+        self._cache = active
         payload = {
             "schema_version": 2,
             "namespace": self.namespace,

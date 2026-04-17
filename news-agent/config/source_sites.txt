@@ -14,12 +14,13 @@ Ynet News           | https://www.ynetnews.com/category/3082    | 4 | English | 
 
 # ── International wire services (Priority 4) ─────────────────────────────────
 AP World            | https://apnews.com/world-news             | 4 | English | wire_service    | 4
-Reuters World       | https://www.reuters.com/world/            | 4 | English | wire_service    | 4 | fallback_homepages=https://www.reuters.com/world/middle-east/;https://www.reuters.com/world/europe/ | warn_on_failure=false
+Reuters World       | https://www.reuters.com/world/             | 4 | English | wire_service    | 4 | rss_url=https://www.reuters.com/rssFeed/worldNews
+France 24 English   | https://www.france24.com/en/middle-east/  | 4 | English | international   | 4 | rss_url=https://www.france24.com/en/middle-east/rss
 
 # ── Major Western outlets (Priority 3) ───────────────────────────────────────
-BBC Middle East     | https://www.bbc.com/news/world/middle_east | 4 | English | center         | 3
-Guardian Middle East| https://www.theguardian.com/world/middleeast | 3 | English | center_left  | 3
+BBC Middle East     | https://www.bbc.com/news/world/middle_east | 4 | English | center         | 3 | rss_url=https://feeds.bbci.co.uk/news/world/middle_east/rss.xml
+Guardian Middle East| https://www.theguardian.com/world/middleeast | 3 | English | center_left  | 3 | rss_url=https://www.theguardian.com/world/middleeast/rss
 
 # ── Critical/opposing voices to track (Priority 2) ───────────────────────────
-Al Jazeera English  | https://www.aljazeera.com/middle-east/    | 4 | English | qatari_state   | 2
-Middle East Eye     | https://www.middleeasteye.net/             | 3 | English | critical        | 2
+Al Jazeera English  | https://www.aljazeera.com/middle-east/    | 4 | English | qatari_state   | 2 | rss_url=https://www.aljazeera.com/xml/rss/all.xml
+Middle East Eye     | https://www.middleeasteye.net/             | 3 | English | critical        | 2 | rss_url=https://www.middleeasteye.net/rss

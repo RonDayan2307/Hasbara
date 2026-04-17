@@ -68,6 +68,14 @@ class RuntimeSettings:
     def review_cache_path(self) -> Path:
         return self.data_dir / "review_cache.json"
 
+    @property
+    def rejected_urls_path(self) -> Path:
+        return self.data_dir / "rejected_urls.json"
+
+    @property
+    def seen_urls_path(self) -> Path:
+        return self.data_dir / "seen_urls.json"
+
     def default_desktop_dir(self) -> Path:
         if self.desktop_dir:
             return self.desktop_dir

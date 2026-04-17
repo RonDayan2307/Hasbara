@@ -9,6 +9,7 @@ from typing import Any
 
 from contracts import CriterionScore, ReviewResult, ReviewedItem, RunManifest, Story
 from criteria import ReviewCriterion, load_review_criteria
+from criterion_skill import CriterionSkill, load_skills
 from ollama_client import OllamaClient
 from report_renderer import render_report_from_reviews  # re-exported for backward compat
 from review_cache import ReviewCache
@@ -29,6 +30,7 @@ class LocalAiAnalyzer:
     def __init__(self, settings: RuntimeSettings) -> None:
         self.settings = settings
         self.criteria = load_review_criteria(settings.criteria_path)
+        self.skills: list[CriterionSkill] = load_skills(self.criteria)
         self.criteria_code_map, self.criteria_code_lookup = _criterion_code_maps(self.criteria)
         self.prompt_version = PROMPT_VERSION
         self.normalization_version = NORMALIZATION_VERSION
@@ -122,7 +124,7 @@ class LocalAiAnalyzer:
         try:
             raw_text = self.client.chat(
                 messages,
-                num_predict=max(120, min(220, self.settings.review_num_predict_per_story)),
+                num_predict=max(120, min(self.settings.review_num_predict_per_story, 512)),
                 json_format=True,
             )
         except Exception as exc:
@@ -216,7 +218,7 @@ class LocalAiAnalyzer:
         try:
             raw_text = self.client.chat(
                 messages,
-                num_predict=max(80, min(140, self.settings.review_num_predict_per_story)),
+                num_predict=max(80, min(self.settings.review_num_predict_per_story // 2, 256)),
                 json_format=False,
             )
         except Exception as exc:

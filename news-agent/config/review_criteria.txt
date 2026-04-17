@@ -14,6 +14,6 @@ virality                      | viral, highly shareable, or likely to spread qui
 # Uncomment any of the lines below to activate them.
 
 # incitement_to_violence       | inciting, glorifying, or justifying violence against Israelis, Jews, or Israeli interests | no violent language | ambiguous or indirect incitement | direct calls for violence or glorification of attacks
-# narrative_delegitimization   | delegitimizing Israel as a state, its government, or its right to defend itself | neutral or balanced framing | one-sided but not delegitimizing | systematic delegitimization of Israel's existence or self-defense
+narrative_delegitimization    | delegitimizing Israel as a state, its government, or its right to defend itself | neutral or balanced framing | one-sided but not delegitimizing | systematic delegitimization of Israel's existence or self-defense
+source_credibility            | originating from a low-credibility, state-controlled, or known-disinformation outlet | established credible outlet | mixed credibility record | known propaganda or disinformation source
 # geopolitical_escalation      | active military, diplomatic, or strategic escalation directly affecting Israel or the region | no escalation signals | diplomatic tensions or posturing | active military operations or major diplomatic crises
-# source_credibility           | originating from a low-credibility, state-controlled, or known-disinformation outlet | established credible outlet | mixed credibility record | known propaganda or disinformation source

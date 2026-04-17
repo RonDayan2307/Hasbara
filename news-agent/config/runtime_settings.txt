@@ -16,14 +16,14 @@ ollama_temperature=0.0
 
 # Pipeline behavior
 report_mode=local
-max_review_stories=6
+max_review_stories=40
 max_article_paragraphs=4
 min_body_chars=120
-max_body_chars=800
+max_body_chars=1500
 
 # Local AI output budgets
 # Keep the structured output budget small enough for gemma4:e4b to finish reliably.
-review_num_predict_per_story=180
+review_num_predict_per_story=256
 report_num_predict=420
 # gemma4:e4b is lighter than the previous 31B setup, but smaller contexts are still safer for strict JSON.
 num_ctx=3072

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 from contracts import ReviewResult, Story, TopicAttachment
 from settings import RuntimeSettings
@@ -100,6 +103,15 @@ class TopicMemory:
 
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        now = _utc_now()
+        active_topics = [
+            t for t in self.topics
+            if not _parse_time(t.get("window_end")) or _parse_time(t.get("window_end")) >= now
+        ]
+        pruned = len(self.topics) - len(active_topics)
+        if pruned:
+            log.info("Pruned %d expired topic(s) from memory.", pruned)
+        self.topics = active_topics
         payload = {
             "schema_version": 1,
             "topic_window_days": self.settings.topic_window_days,

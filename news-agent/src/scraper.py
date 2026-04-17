@@ -1,13 +1,21 @@
 from __future__ import annotations
 
+import calendar
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
+import feedparser
 import requests
+try:
+    from langdetect import DetectorFactory, detect as _langdetect
+    DetectorFactory.seed = 0  # deterministic results
+    _LANGDETECT_AVAILABLE = True
+except ImportError:
+    _LANGDETECT_AVAILABLE = False
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from bs4 import BeautifulSoup
@@ -19,6 +27,36 @@ from telemetry import IngestionTelemetry
 from utils import clean_whitespace, project_root, stable_id
 
 log = logging.getLogger(__name__)
+
+# How many link candidates to pull per source when window filtering is active.
+# Larger than the per-source max_links because we need to see enough candidates
+# to find all articles published in the last N hours.
+_WINDOW_MAX_CANDIDATES = 30
+
+
+def _parse_article_time(value: str | None) -> datetime | None:
+    """Parse an article publication timestamp string into a UTC datetime.
+
+    Handles ISO 8601 (``2026-04-16T21:00:00+00:00``) and RFC 2822
+    (``Wed, 16 Apr 2026 21:00:00 +0000``).  Returns None on parse failure.
+    """
+    if not value:
+        return None
+    try:
+        s = value.strip().replace("Z", "+00:00")
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    except ValueError:
+        pass
+    try:
+        from email.utils import parsedate_to_datetime
+        return parsedate_to_datetime(value).astimezone(timezone.utc)
+    except Exception:
+        pass
+    return None
+
 
 _GENERIC_DENY_PATH_FRAGMENTS = (
     "/topic/",
@@ -93,7 +131,8 @@ _SOURCE_BODY_SELECTORS = {
 # Retries on transient errors; exponential backoff: 1s, 2s, 4s between attempts.
 _RETRY = Retry(
     total=3,
-    backoff_factor=1,
+    connect=1,
+    backoff_factor=0.5,
     status_forcelist=[429, 500, 502, 503, 504],
     allowed_methods=["GET"],
     raise_on_status=False,
@@ -245,7 +284,7 @@ def _apply_source_rules(source: dict, rules: dict[str, dict]) -> dict:
     return enriched
 
 
-def fetch_html(session: requests.Session, url: str, timeout: int = 20) -> str:
+def fetch_html(session: requests.Session, url: str, timeout: tuple = (5, 20)) -> str:
     log.debug("GET %s", url)
     response = session.get(url, timeout=timeout)
     response.raise_for_status()
@@ -269,7 +308,97 @@ def extract_homepage_links(source: dict, session: requests.Session, homepage_url
     return _extract_links_generic(effective_source, soup)
 
 
-def _fetch_source_links(source: dict, session: requests.Session) -> tuple[list[dict], str]:
+def _fetch_rss_links(
+    source: dict,
+    session: requests.Session,
+    rss_url: str,
+    *,
+    window_hours: int | None = None,
+) -> list[dict]:
+    response = session.get(rss_url, timeout=(5, 20))
+    response.raise_for_status()
+    feed = feedparser.parse(response.text)
+    results = []
+    seen: set = set()
+    cutoff = (
+        datetime.now(timezone.utc) - timedelta(hours=window_hours)
+        if window_hours is not None
+        else None
+    )
+    for entry in feed.entries:
+        title = clean_whitespace(entry.get("title", "") or "")
+        url = clean_whitespace(entry.get("link", "") or "")
+        if not title or not url or len(title) < 20:
+            continue
+        skip_reason = _candidate_skip_reason(source, url, title)
+        if skip_reason:
+            log.debug("Skipping RSS candidate from %s: %s -> %s", source["name"], url, skip_reason)
+            continue
+        key = (title.lower(), url)
+        if key in seen:
+            continue
+        seen.add(key)
+
+        # Extract publication time from RSS entry metadata
+        rss_published_at: str | None = None
+        time_struct = entry.get("published_parsed") or entry.get("updated_parsed")
+        if time_struct:
+            try:
+                rss_published_at = datetime.fromtimestamp(
+                    calendar.timegm(time_struct), tz=timezone.utc
+                ).isoformat()
+            except Exception:
+                pass
+
+        # Fast-path: skip old entries before fetching the article body
+        if cutoff is not None and rss_published_at is not None:
+            entry_time = _parse_article_time(rss_published_at)
+            if entry_time is not None and entry_time < cutoff:
+                log.debug(
+                    "Skipping old RSS entry from %s (published %s): %s",
+                    source["name"],
+                    rss_published_at[:19],
+                    url,
+                )
+                continue
+
+        results.append({
+            **_base_source_fields(source),
+            "title": title,
+            "url": url,
+            "rss_published_at": rss_published_at,
+        })
+        # When window filtering is active collect all recent entries; otherwise
+        # respect the per-source max_links cap.
+        if window_hours is None and len(results) >= source.get("max_links", 5):
+            break
+
+    log.info("Found %d links via RSS from %s", len(results), source["name"])
+    return results
+
+
+def _fetch_source_links(
+    source: dict,
+    session: requests.Session,
+    *,
+    window_hours: int | None = None,
+    max_links_cap: int | None = None,
+) -> tuple[list[dict], str]:
+    # Override the per-source link cap when we want more candidates
+    if max_links_cap is not None:
+        source = dict(source)
+        source["max_links"] = max_links_cap
+
+    rss_url = source.get("rss_url")
+    if rss_url:
+        try:
+            links = _fetch_rss_links(source, session, rss_url, window_hours=window_hours)
+            if links:
+                return links, rss_url
+            log.info("RSS returned no links for %s; falling back to homepage scraping", source.get("name"))
+        except Exception as exc:
+            log.info("RSS fetch failed for %s (%s); falling back to homepage scraping", source.get("name"), exc)
+
     candidates = [source["homepage"], *source.get("fallback_homepages", [])]
     errors: list[str] = []
     for homepage in candidates:
@@ -505,7 +634,7 @@ def extract_article(
     *,
     source: dict | None = None,
 ) -> dict:
-    html = fetch_html(session, url, timeout=30)
+    html = fetch_html(session, url, timeout=(5, 30))
     full_soup = BeautifulSoup(html, "lxml")
     page_title = clean_whitespace(full_soup.title.get_text(" ", strip=True) if full_soup.title else "")
     skip_reason = _candidate_skip_reason(source or {}, url, page_title)
@@ -553,7 +682,22 @@ def iter_stories(
     settings: RuntimeSettings,
     limit: int | None = None,
     telemetry: IngestionTelemetry | None = None,
+    *,
+    window_hours: int | None = 2,
+    seen_url_store=None,
 ):
+    """Yield Story dicts for all articles published within ``window_hours``.
+
+    Args:
+        settings: Runtime configuration.
+        limit: Optional hard cap on total stories yielded (used by tests).
+        telemetry: Optional ingestion telemetry collector.
+        window_hours: Only yield articles published within this many hours.
+            Pass ``None`` to disable time filtering (collect everything).
+        seen_url_store: Optional :class:`SeenUrlStore` instance.  When
+            provided, URLs already present in the store are skipped before
+            fetching, and freshly yielded URLs are recorded in the store.
+    """
     source_rules = load_source_rules(settings.source_rules_path)
     sources = [
         _apply_source_rules(source, source_rules)
@@ -576,6 +720,9 @@ def iter_stories(
         }
     )
     yielded = 0
+    # When window-filtering, fetch more link candidates per source so we
+    # don't miss articles near the top of each feed.
+    max_links_cap = _WINDOW_MAX_CANDIDATES if window_hours is not None else None
     source_states = [
         {
             "source": source,
@@ -601,7 +748,12 @@ def iter_stories(
 
             if state["links"] is None:
                 try:
-                    state["links"], actual_homepage = _fetch_source_links(source, session)
+                    state["links"], actual_homepage = _fetch_source_links(
+                        source,
+                        session,
+                        window_hours=window_hours,
+                        max_links_cap=max_links_cap,
+                    )
                     if actual_homepage != source["homepage"]:
                         log.info(
                             "Using fallback homepage for %s: %s",
@@ -630,17 +782,79 @@ def iter_stories(
             state["next_index"] += 1
             made_progress = True
 
+            candidate_url = item["url"]
+
+            # ── Seen-URL check (before any network fetch) ─────────────────────
+            if seen_url_store is not None and seen_url_store.is_seen(candidate_url):
+                log.info("Skipping already-seen URL: %s", candidate_url)
+                if telemetry is not None:
+                    telemetry.record_candidate_skip(source, "already-seen URL")
+                continue
+
+            # ── RSS timestamp fast-path ────────────────────────────────────────
+            # RSS entries carry a publish time; skip old ones without fetching.
+            rss_pub_at = item.get("rss_published_at")
+            if window_hours is not None and rss_pub_at is not None:
+                cutoff = datetime.now(timezone.utc) - timedelta(hours=window_hours)
+                pub_time = _parse_article_time(rss_pub_at)
+                if pub_time is not None and pub_time < cutoff:
+                    log.info(
+                        "Skipping old RSS article (outside %dh window, published %s): %s",
+                        window_hours,
+                        rss_pub_at[:19],
+                        candidate_url,
+                    )
+                    if telemetry is not None:
+                        telemetry.record_candidate_skip(source, f"outside {window_hours}h window")
+                    continue
+
             try:
-                article = extract_article(item["url"], session, settings, source=source)
+                article = extract_article(candidate_url, session, settings, source=source)
                 body = article["body"]
                 if len(body) < settings.min_body_chars:
-                    log.info("Skipping short or thin article: %s", item["url"])
+                    log.info("Skipping short or thin article: %s", candidate_url)
                     if telemetry is not None:
                         telemetry.record_candidate_skip(source, "short or thin article body")
                     continue
 
-                url = article.get("canonical_url") or item["url"]
+                # ── Published-at window check (homepage-scraped articles) ──────
+                # For homepage articles we only know the publish time after
+                # fetching. Skip if outside the window; if no timestamp, keep it.
+                if window_hours is not None and rss_pub_at is None:
+                    pub_time = _parse_article_time(article.get("published_at"))
+                    if pub_time is not None:
+                        cutoff = datetime.now(timezone.utc) - timedelta(hours=window_hours)
+                        if pub_time < cutoff:
+                            log.info(
+                                "Skipping article outside %dh window (published %s): %s",
+                                window_hours,
+                                article.get("published_at", "?"),
+                                candidate_url,
+                            )
+                            if telemetry is not None:
+                                telemetry.record_candidate_skip(source, f"outside {window_hours}h window")
+                            continue
+
+                if _LANGDETECT_AVAILABLE and source.get("language", "").lower() == "english" and len(body) >= 300:
+                    try:
+                        detected = _langdetect(body[:600])
+                        if detected != "en":
+                            log.info("Skipping non-English article (%s): %s", detected, candidate_url)
+                            if telemetry is not None:
+                                telemetry.record_candidate_skip(source, f"non-English content ({detected})")
+                            continue
+                    except Exception:
+                        pass  # langdetect can fail on very short/unusual text; don't block article
+
+                url = article.get("canonical_url") or candidate_url
                 yielded += 1
+
+                # Record both the candidate and canonical URL as seen
+                if seen_url_store is not None:
+                    seen_url_store.add(candidate_url, source_name=source.get("name", "unknown"))
+                    if url != candidate_url:
+                        seen_url_store.add(url, source_name=source.get("name", "unknown"))
+
                 if telemetry is not None:
                     telemetry.record_story_collected(source)
                 yield {
@@ -654,18 +868,18 @@ def iter_stories(
                     "url": url,
                     "body": body,
                     "description": article.get("description"),
-                    "published_at": article.get("published_at"),
+                    "published_at": article.get("published_at") or rss_pub_at,
                     "collected_at": collected_at,
                     "metrics": article.get("metrics", {}),
                 }  # type: Story
                 log.debug("Scraped: %s", item["title"])
             except SkippedArticle as exc:
-                log.info("Skipping non-article candidate: %s -> %s", item["url"], exc)
+                log.info("Skipping non-article candidate: %s -> %s", candidate_url, exc)
                 if telemetry is not None:
                     telemetry.record_candidate_skip(source, str(exc))
             except Exception as exc:
-                log.warning("Failed parsing article: %s -> %s", item["url"], exc)
-                print(f"[WARN] Failed parsing article: {item['url']} -> {exc}")
+                log.warning("Failed parsing article: %s -> %s", candidate_url, exc)
+                print(f"[WARN] Failed parsing article: {candidate_url} -> {exc}")
                 if telemetry is not None:
                     telemetry.record_extraction_failure(source, str(exc))
 

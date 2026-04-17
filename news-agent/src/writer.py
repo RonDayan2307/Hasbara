@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import logging
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 from contracts import ReviewedItem, RunManifest, Story
 from settings import RuntimeSettings
@@ -192,6 +195,22 @@ def _format_sources(reviewed_items: list[ReviewedItem]) -> list[str]:
     return lines
 
 
+def _archive_old_reports(report_dir: Path, days: int = 30) -> None:
+    cutoff = datetime.now() - timedelta(days=days)
+    archive_dir = report_dir / "archive"
+    moved = 0
+    for report in report_dir.glob("hasbara-stage1-report-*.md"):
+        try:
+            if datetime.fromtimestamp(report.stat().st_mtime) < cutoff:
+                archive_dir.mkdir(parents=True, exist_ok=True)
+                report.rename(archive_dir / report.name)
+                moved += 1
+        except Exception:
+            pass
+    if moved:
+        log.info("Archived %d old report(s) to %s", moved, archive_dir)
+
+
 def write_stage1_report(
     settings: RuntimeSettings,
     report_text: str,
@@ -200,6 +219,7 @@ def write_stage1_report(
 ) -> Path:
     outdir = settings.report_output_dir()
     outdir.mkdir(parents=True, exist_ok=True)
+    _archive_old_reports(outdir)
     filename = f"{safe_filename(f'hasbara stage1 report {_timestamp()}', max_length=120)}.md"
     outpath = outdir / filename
 
