@@ -1,0 +1,371 @@
+model:
+  provider: ollama
+  name: gemma4:e4b
+  base_url: http://localhost:11434
+  timeout: 120
+  max_retries: 3
+
+scraping:
+  interval_minutes: 60
+  recency_window_hours: 2
+  user_agent: "NewsAgent/1.0 (research; +https://github.com/news-agent)"
+  request_delay_min: 1.0
+  request_delay_max: 3.0
+  respect_robots_txt: true
+
+thresholds:
+  ignore_below: 4.0
+  store_short_term: 4.0
+  report_minimum: 6.0
+  high_priority: 8.0
+  terminal_alert: 9.0
+  claim_extraction_minimum: 7.0
+
+override_triggers:
+  - criterion: antisemitic_content
+    minimum: 9
+  - criterion: misinformation_risk
+    minimum: 9
+    condition_note: "when concerning Israel, IDF, or Israeli security agencies"
+  - criterion: hostile_media_narrative
+    minimum: 9
+
+scoring_criteria:
+  - israel_political_relevance
+  - antisemitic_content
+  - anti_zionist_content
+  - misinformation_risk
+  - war_crimes_accusation
+  - sanctions_or_boycott_risk
+  - un_or_legal_action
+  - hostile_media_narrative
+  - diplomatic_incident
+
+content_labels:
+  - legitimate_policy_criticism
+  - anti_israel_framing
+  - anti_zionist_framing
+  - antisemitic_content
+  - misinformation_or_unverified_claim
+  - reputational_crisis
+  - incitement_or_threat
+
+retention:
+  article_text_days: 14
+  debug_payload_days: 14
+  topic_active_days: 14
+  refetch_after_days: 7
+
+paths:
+  database: data/news_agent.db
+  reports: reports
+  logs: logs
+  debug: debug
+
+sources:
+  - name: Times of Israel
+    homepage_url: https://www.timesofisrael.com/
+    rss_url: https://www.timesofisrael.com/feed/
+    enabled: true
+    language: en
+    region: israel
+    orientation: center-right
+    credibility_level: high
+    priority: 1
+    max_links: 100
+    deny_patterns: []
+    prefer_patterns: []
+
+  - name: Jerusalem Post
+    homepage_url: https://www.jpost.com/
+    rss_url: https://www.jpost.com/rss/rssfeedsfrontpage.aspx
+    enabled: true
+    language: en
+    region: israel
+    orientation: center-right
+    credibility_level: high
+    priority: 1
+    max_links: 100
+    deny_patterns: []
+    prefer_patterns: []
+
+  - name: Haaretz English
+    homepage_url: https://www.haaretz.com/
+    rss_url: https://www.haaretz.com/cmlink/1.628765
+    enabled: true
+    language: en
+    region: israel
+    orientation: center-left
+    credibility_level: high
+    priority: 1
+    max_links: 100
+    deny_patterns: []
+    prefer_patterns: []
+
+  - name: Ynet News
+    homepage_url: https://www.ynetnews.com/
+    rss_url: https://www.ynetnews.com/Integration/StoryRss1854.xml
+    enabled: true
+    language: en
+    region: israel
+    orientation: center
+    credibility_level: high
+    priority: 1
+    max_links: 100
+    deny_patterns: []
+    prefer_patterns: []
+
+  - name: AP World
+    homepage_url: https://apnews.com/world-news
+    rss_url: https://apnews.com/feed
+    enabled: true
+    language: en
+    region: international
+    orientation: center
+    credibility_level: very_high
+    priority: 2
+    max_links: 100
+    deny_patterns: []
+    prefer_patterns:
+      - israel
+      - gaza
+      - middle-east
+
+  - name: France 24 English
+    homepage_url: https://www.france24.com/en/middle-east/
+    rss_url: https://www.france24.com/en/middle-east/rss
+    enabled: true
+    language: en
+    region: international
+    orientation: center
+    credibility_level: high
+    priority: 2
+    max_links: 100
+    deny_patterns: []
+    prefer_patterns: []
+
+  - name: BBC Middle East
+    homepage_url: https://www.bbc.com/news/world/middle_east
+    rss_url: https://feeds.bbci.co.uk/news/world/middle_east/rss.xml
+    enabled: true
+    language: en
+    region: international
+    orientation: center
+    credibility_level: very_high
+    priority: 2
+    max_links: 100
+    deny_patterns: []
+    prefer_patterns: []
+
+  - name: Guardian Middle East
+    homepage_url: https://www.theguardian.com/world/middleeast
+    rss_url: https://www.theguardian.com/world/middleeast/rss
+    enabled: true
+    language: en
+    region: international
+    orientation: center-left
+    credibility_level: high
+    priority: 2
+    max_links: 100
+    deny_patterns: []
+    prefer_patterns: []
+
+  - name: Al Jazeera English
+    homepage_url: https://www.aljazeera.com/middle-east/
+    rss_url: https://www.aljazeera.com/xml/rss/all.xml
+    enabled: true
+    language: en
+    region: international
+    orientation: left
+    credibility_level: medium
+    priority: 3
+    max_links: 100
+    deny_patterns: []
+    prefer_patterns: []
+
+  - name: Middle East Eye
+    homepage_url: https://www.middleeasteye.net/
+    rss_url: https://www.middleeasteye.net/rss
+    enabled: true
+    language: en
+    region: international
+    orientation: left
+    credibility_level: medium
+    priority: 3
+    max_links: 100
+    deny_patterns: []
+    prefer_patterns: []
+
+  - name: Reuters
+    homepage_url: https://www.reuters.com/world/middle-east/
+    rss_url: https://www.reutersagency.com/feed/
+    enabled: true
+    language: en
+    region: international
+    orientation: center
+    credibility_level: very_high
+    priority: 1
+    max_links: 100
+    deny_patterns: []
+    prefer_patterns:
+      - israel
+      - gaza
+      - middle-east
+
+  - name: CNN World
+    homepage_url: https://edition.cnn.com/world
+    rss_url: https://rss.cnn.com/rss/edition_world.rss
+    enabled: true
+    language: en
+    region: international
+    orientation: center-left
+    credibility_level: high
+    priority: 2
+    max_links: 100
+    deny_patterns: []
+    prefer_patterns:
+      - israel
+      - gaza
+      - middle-east
+
+  - name: Sky News
+    homepage_url: https://news.sky.com/world
+    rss_url: https://feeds.skynews.com/feeds/rss/world.xml
+    enabled: true
+    language: en
+    region: international
+    orientation: center
+    credibility_level: high
+    priority: 2
+    max_links: 100
+    deny_patterns: []
+    prefer_patterns:
+      - israel
+      - middle-east
+
+  - name: Fox News World
+    homepage_url: https://www.foxnews.com/world
+    rss_url: https://moxie.foxnews.com/google-publisher/world.xml
+    enabled: true
+    language: en
+    region: international
+    orientation: right
+    credibility_level: medium
+    priority: 3
+    max_links: 100
+    deny_patterns: []
+    prefer_patterns:
+      - israel
+      - middle-east
+
+  - name: NTD News
+    homepage_url: https://www.ntd.com/world.html
+    rss_url: https://www.ntd.com/rss/world.xml
+    enabled: true
+    language: en
+    region: international
+    orientation: center-right
+    credibility_level: medium
+    priority: 3
+    max_links: 100
+    deny_patterns: []
+    prefer_patterns:
+      - israel
+      - middle-east
+
+  - name: i24 News
+    homepage_url: https://www.i24news.tv/en
+    rss_url: null
+    enabled: true
+    language: en
+    region: israel
+    orientation: center-right
+    credibility_level: high
+    priority: 1
+    max_links: 100
+    deny_patterns: []
+    prefer_patterns: []
+
+  - name: Arutz Sheva
+    homepage_url: https://www.israelnationalnews.com/
+    rss_url: https://www.israelnationalnews.com/rss.aspx
+    enabled: true
+    language: en
+    region: israel
+    orientation: right
+    credibility_level: medium
+    priority: 2
+    max_links: 100
+    deny_patterns: []
+    prefer_patterns: []
+
+  - name: Walla News English
+    homepage_url: https://english.walla.co.il/
+    rss_url: null
+    enabled: true
+    language: en
+    region: israel
+    orientation: center
+    credibility_level: medium
+    priority: 2
+    max_links: 100
+    deny_patterns: []
+    prefer_patterns: []
+
+  - name: UN News Middle East
+    homepage_url: https://news.un.org/en/news/region/middle-east
+    rss_url: https://news.un.org/feed/subscribe/en/news/region/middle-east/feed/rss.xml
+    enabled: true
+    language: en
+    region: institutional
+    orientation: center
+    credibility_level: high
+    priority: 2
+    max_links: 100
+    deny_patterns: []
+    prefer_patterns: []
+
+  - name: ICC
+    homepage_url: https://www.icc-cpi.int/news
+    rss_url: null
+    enabled: true
+    language: en
+    region: institutional
+    orientation: center
+    credibility_level: high
+    priority: 2
+    max_links: 100
+    deny_patterns: []
+    prefer_patterns:
+      - israel
+      - palestine
+
+  - name: Amnesty International
+    homepage_url: https://www.amnesty.org/en/latest/news/
+    rss_url: null
+    enabled: true
+    language: en
+    region: institutional
+    orientation: center-left
+    credibility_level: high
+    priority: 2
+    max_links: 100
+    deny_patterns: []
+    prefer_patterns:
+      - israel
+      - palestine
+      - gaza
+
+trusted_sources:
+  - name: IDF
+    category: military
+    urls:
+      - https://www.idf.il/
+    notes: "Official Israel Defense Forces communications"
+
+prompt_versions:
+  classification: "v1"
+  claim_extraction: "v1"
+  topic_grouping: "v1"
+  source_comparison: "v1"
+  report_drafting: "v1"

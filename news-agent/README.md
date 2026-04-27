@@ -1,202 +1,231 @@
-# News Agent - Stage 1
+# News Agent
 
-This project is the Stage 1 pipeline for the Hasbara monitoring system. It collects articles from configured media sites, extracts machine-readable text, reviews each story with a local Ollama model, groups relevant items into time-bounded topics, and writes a markdown report inside the main `Hasbara` workspace.
+Local CLI news monitoring agent for reputational-risk situational awareness. Scrapes public/RSS-accessible English news sources, analyzes articles with a local Ollama model, groups stories into narratives, detects reputational risk, writes markdown reports, and prints terminal alerts.
 
-The current implementation is optimized for a single analyst running locally with a local model and plain-text configuration files.
+**Stage 1**: CLI-only, local-only. No cloud LLMs, no paid APIs, no social media, no dashboard.
 
-## Core Flow
+## Quick Start
 
-Each run goes through these stages:
+### Prerequisites
 
-1. Load runtime settings and review criteria
-2. Run a strict Ollama health check
-3. Collect article candidates from configured sources in round-robin order — via RSS feeds where available, falling back to homepage scraping. Only articles from the last 2 hours are collected.
-4. Skip already-seen URLs (cross-run deduplication via `seen_urls.json`) and previously rejected URLs (avg score < 3, via `rejected_urls.json`)
-5. Extract article text with source-aware rules and deterministic body extraction
-6. Skip non-English articles (language detection via langdetect)
-7. Review each story one by one with the local model
-8. Classify each review: **save** (avg > 6 or any score >= 8), **reject** (avg < 3, URL recorded), or **normal**
-9. Fall back conservatively if structured model output fails
-10. Attach worthy stories to topic memory (expired topics are pruned on save)
-11. Write JSONL/JSON artifacts and a markdown report (reports older than 30 days are auto-archived)
+- Python 3.10+
+- [Ollama](https://ollama.ai/) installed and running
+- Model: `gemma4:e4b`
 
-## Configuration Files
-
-The pipeline is controlled by plain-text files:
-
-- [runtime_settings.txt](config/runtime_settings.txt)
-  Runtime behavior, model name, thresholds, paths, and output budgets.
-- [review_criteria.txt](config/review_criteria.txt)
-  The scoring criteria. Each criterion is asked: `Does this article contain <material> material?`
-- [source_sites.txt](config/source_sites.txt)
-  Source name, homepage URL, max links, language, orientation, priority, and optional `rss_url`.
-- [source_rules.txt](config/source_rules.txt)
-  Per-source deny/prefer rules to avoid topic hubs, autoplay shells, newsletters, explainers, and similar noise.
-
-## Setup
-
-Use Python 3.9 or newer.
-
-### macOS / Linux
+### Setup (macOS/Linux)
 
 ```bash
 cd news-agent
+
+# Create virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
+
+# Copy environment config
+cp .env.example .env
+
+# Ensure Ollama is running and pull the model
+ollama serve &  # if not already running
+ollama pull gemma4:e4b
+
+# Verify setup
+python src/main.py doctor
 ```
 
-### Windows PowerShell
+### Setup (Windows PowerShell)
 
 ```powershell
 cd news-agent
-py -m venv .venv
+
+# Create virtual environment
+python -m venv .venv
 .\.venv\Scripts\Activate.ps1
+
+# Install dependencies
 pip install -r requirements.txt
-```
 
-## Ollama Setup
+# Copy environment config
+Copy-Item .env.example .env
 
-Ollama must be running locally before each pipeline run.
-
-```bash
-# Pull the model (one-time setup)
+# Ensure Ollama is running and pull the model
+# Start Ollama from its installed location, then:
 ollama pull gemma4:e4b
 
-# Verify the model responds correctly
-ollama run gemma4:e4b "Say only OK"
-
-# Start Ollama if not already running
-ollama serve
+# Verify setup
+python src\main.py doctor
 ```
 
-If `ollama serve` says the port is already in use, Ollama is already running — you can skip that step.
+## Usage
 
-## Running
+### Run once (scrape, analyze, report)
 
 ```bash
-cd /Users/ronday/Desktop/Hasbara/news-agent
-source .venv/bin/activate
 python src/main.py
-```
-
-Or use the provided script which auto-installs dependencies:
-
-```bash
+# or
+python src/main.py run
+# or
 ./run.sh
 ```
 
-## Important Runtime Settings
-
-Key fields in [runtime_settings.txt](config/runtime_settings.txt):
-
-| Setting | Default | Notes |
-|---------|---------|-------|
-| `local_ai_model` | `gemma4:e4b` | Must match a pulled Ollama model |
-| `report_mode` | `local` | `local` = structured renderer; `model` = AI-synthesized |
-| `max_body_chars` | `1500` | Max article text fed to the model |
-| `max_article_paragraphs` | `4` | Max paragraphs extracted per article |
-| `review_num_predict_per_story` | `256` | Token budget for structured model output |
-| `num_ctx` | `3072` | Context window size |
-| `min_usable_review_ratio` | `0.8` | Below this → run marked `degraded` |
-| `topic_window_days` | `14` | How long topics stay active in memory |
-| `output_dir` | `../reports` | Report output directory |
-
-## Review Criteria
-
-Active criteria (in [review_criteria.txt](config/review_criteria.txt)):
-
-| Criterion | What it detects |
-|-----------|----------------|
-| `israel_political_relevance` | Politically relevant to Israel, Israeli policy, or Israeli interests |
-| `antisemitic_content` | Antisemitic targeting or hatred toward Jews |
-| `anti_zionist_content` | Anti-Zionist framing or denial of Israel's right to exist |
-| `misinformation_risk` | Misleading, false, or manipulative claims |
-| `virality` | Viral or highly shareable content |
-| `narrative_delegitimization` | Delegitimizing Israel's existence or right to self-defense |
-| `source_credibility` | Low-credibility, state-controlled, or disinformation outlet |
-
-Additional criteria (`incitement_to_violence`, `geopolitical_escalation`) can be activated by uncommenting lines in `review_criteria.txt`.
-
-## Sources
-
-10 outlets are configured (in [source_sites.txt](config/source_sites.txt)):
-
-| Source | Priority | Notes |
-|--------|----------|-------|
-| Times of Israel | 5 | Israeli center |
-| Jerusalem Post | 5 | Israeli right |
-| Haaretz English | 5 | Israeli left; many articles paywalled — body filter silently drops short extracts |
-| Ynet News | 5 | Israeli center |
-| AP World | 4 | Wire service |
-| France 24 English | 4 | International; RSS feed for Middle East section |
-| BBC Middle East | 3 | RSS feed configured |
-| Guardian Middle East | 3 | RSS feed configured |
-| Al Jazeera English | 2 | RSS feed configured; Cloudflare may block homepage fallback |
-| Middle East Eye | 2 | RSS feed configured |
-
-RSS feeds are used as the primary link source when the `rss_url` field is set in `source_sites.txt`, with homepage scraping as automatic fallback. To add an RSS feed for a source, append `| rss_url=https://...` to its line.
-
-## Output Files
-
-- `data/articles/YYYY-MM-DD/articles_*.jsonl` — Extracted article text and metadata
-- `data/reviews/YYYY-MM-DD/reviews_*.jsonl` — Structured review results with topic and cross-check data
-- `data/runs/YYYY-MM-DD/run_*.json` — Run manifest with health status, counts, and source health
-- `data/topics.json` — Time-bounded topic memory (expired topics pruned automatically on each save)
-- `data/review_cache.json` — Namespaced cache of successful model reviews
-- `data/seen_urls.json` — Cross-run URL store; skips already-processed articles (14-day TTL)
-- `data/rejected_urls.json` — URLs with avg score < 3.0; skipped without model call on future runs (14-day TTL)
-- `../reports/hasbara-stage1-report-*.md` — Analyst-facing markdown report
-- `../reports/archive/` — Reports older than 30 days are auto-archived here
-
-## Trust and Degraded Runs
-
-Reviews are labeled by method:
-
-- `model` — fresh model output
-- `cached` — returned from review cache
-- `heuristic_fallback` — model failed; conservative scoring applied
-
-Runs are marked `degraded` when the usable review ratio falls below `min_usable_review_ratio`. Source failures, extraction failures, and candidate skips are recorded in the run manifest and the markdown report.
-
-## Maintenance / Data Reset
+### Watch mode (run every hour)
 
 ```bash
-cd /Users/ronday/Desktop/Hasbara/news-agent
-
-# Clear topic memory (start fresh topic grouping)
-rm -f data/topics.json
-
-# Clear review cache (force re-review of all articles)
-rm -f data/review_cache.json
-
-# Clear debug payloads from model failures
-rm -rf data/debug/
-
-# Archive all current reports manually
-mkdir -p ../reports/archive && mv ../reports/hasbara-stage1-report-*.md ../reports/archive/
+python src/main.py --watch
+# or
+python src/main.py watch
 ```
 
-## Tests
+### Health check
 
 ```bash
-cd /Users/ronday/Desktop/Hasbara/news-agent
-source .venv/bin/activate
-PYTHONPATH=src python -m unittest discover -s tests -p "test_*.py"
+python src/main.py doctor
 ```
 
-## Key Modules
+### Other commands
 
-- [main.py](src/main.py) — Pipeline orchestrator
-- [settings.py](src/settings.py) — Config loader and validation
-- [contracts.py](src/contracts.py) — TypedDict data shapes
-- [telemetry.py](src/telemetry.py) — Source health tracking
-- [scraper.py](src/scraper.py) — RSS + homepage link collection, article extraction, language filtering
-- [analyzer.py](src/analyzer.py) — Ollama review with 3-tier fallback
-- [memory.py](src/memory.py) — Time-bounded topic memory with automatic expired-topic pruning
-- [report_renderer.py](src/report_renderer.py) — Markdown report rendering
-- [writer.py](src/writer.py) — Artifact writer with automatic report archiving
+```bash
+python src/main.py sources    # List configured sources
+python src/main.py alerts     # Show alerts from last run
+python src/main.py report     # Show latest report
+python src/main.py cleanup    # Run data retention cleanup
+```
 
-## Operator Notes
+### Debug mode
 
-See [STAGE1_OPERATOR.md](../STAGE1_OPERATOR.md) for the operator guide and [WORKLOG.md](../WORKLOG.md) for the implementation log.
+```bash
+python src/main.py --debug run
+```
+
+## Output
+
+- **Reports**: `reports/` directory. Each run produces a timestamped markdown file + `latest.md`.
+- **Database**: `data/news_agent.db` (SQLite)
+- **Logs**: `logs/news_agent.log`
+
+## Configuration
+
+Edit `config.yaml` to customize:
+
+- **Model**: Ollama endpoint, model name, timeout, retries
+- **Sources**: Add/remove/configure news sources
+- **Thresholds**: Scoring thresholds for reporting and alerting
+- **Retention**: Data retention periods
+- **Scraping**: Request delays, user agent, robots.txt behavior
+
+### Source configuration
+
+Each source supports:
+- `name`, `homepage_url`, `rss_url` (optional)
+- `enabled`, `language`, `region`
+- `orientation` (manually configured editorial leaning)
+- `credibility_level` (manually configured)
+- `priority` (1=highest)
+- `max_links` (max articles per scrape)
+- `deny_patterns` / `prefer_patterns` (URL regex filters)
+
+### Scoring
+
+Articles scored 0-10 on 9 criteria. Final score = min(10, average + count_of_criteria_over_7).
+
+| Final Score | Action |
+|-------------|--------|
+| < 4.0 | Ignored, text deleted |
+| 4.0 - 5.9 | Stored short-term |
+| 6.0+ | Included in report |
+| 8.0+ | High priority topic |
+| 9.0+ | Terminal alert |
+
+Override triggers (instant alert): `antisemitic_content >= 9`, `misinformation_risk >= 9` (Israel-related), `hostile_media_narrative >= 9`.
+
+### Data retention
+
+- Article text: 14 days for reported articles, deleted immediately for low-score
+- Debug payloads: 14 days
+- Topic metadata: retained indefinitely for statistics
+- Model cache: 30 days
+
+## Architecture
+
+```
+src/
+  main.py                       # Entry point
+  news_agent/
+    cli.py                      # CLI argument parsing
+    config.py                   # Configuration loading
+    logging_setup.py            # Logging setup
+    db/                         # SQLite layer
+      connection.py
+      schema.py
+      repositories.py
+      migrations.py
+    models/
+      contracts.py              # Data classes
+    sources/                    # Collection
+      source_config.py
+      robots.py
+      rss.py
+      homepage.py
+      extractor.py
+      canonicalize.py
+    analysis/                   # AI analysis
+      ollama_client.py
+      prompts.py
+      scorer.py
+      claim_extractor.py
+      fallback.py
+      cache.py
+    topics/                     # Topic grouping
+      grouper.py
+      lifecycle.py
+      comparison.py
+    reports/
+      markdown_renderer.py
+    alerts/
+      terminal.py
+    jobs/                       # Pipeline orchestration
+      pipeline.py
+      scheduler.py
+      cleanup.py
+      doctor.py
+    utils/
+      time.py
+      text.py
+      hashing.py
+      json_repair.py
+```
+
+## Limitations (Stage 1)
+
+- English-only
+- No social media monitoring
+- No cloud LLMs or paid APIs
+- No web dashboard or push notifications
+- No backfill capability
+- Single-user local operation
+- No Docker support
+- Topic grouping quality depends on local model capability
+- No automated tests yet
+
+## Future expansion points
+
+- Cloud LLM fallback (designed as swappable provider)
+- Telegram/Slack/email notifications
+- Social media monitoring layer
+- Web dashboard / narrative map UI
+- Search API integration
+- Multi-language support
+- Docker deployment
+- Automated test suite
+
+## Troubleshooting
+
+1. **"Ollama not reachable"**: Start Ollama with `ollama serve`
+2. **"Model not available"**: Run `ollama pull gemma4:e4b`
+3. **Degraded run**: Model was unavailable; keyword-based fallback was used
+4. **No articles collected**: Check source URLs, internet connection, or rate limiting
+5. **Empty reports**: Articles may not meet the 6.0 score threshold
+
+Run `python src/main.py doctor` to diagnose issues.
