@@ -157,3 +157,35 @@
 2026-04-27 20:48:32,205 [INFO] news_agent.sources.homepage: Homepage: Amnesty International -> 40 candidates
 2026-04-27 20:48:38,766 [INFO] news_agent.jobs.pipeline: Filtered 728 candidates -> 240 new articles
 2026-04-27 20:59:21,742 [INFO] news_agent.reports.markdown: Report written to /Users/ronday/Desktop/Hasbara project/news-agent/reports/report_20260427_1759.md
+2026-04-27 21:14:06,031 [INFO] news_agent.jobs.pipeline: Collecting from 21 sources (8 workers)...
+2026-04-27 21:14:06,416 [INFO] news_agent.sources.rss: RSS: France 24 English -> 30 candidates
+2026-04-27 21:14:06,442 [INFO] news_agent.sources.rss: RSS: Jerusalem Post -> 26 candidates
+2026-04-27 21:14:06,497 [INFO] news_agent.sources.rss: RSS: BBC Middle East -> 34 candidates
+2026-04-27 21:14:06,508 [INFO] news_agent.sources.rss: RSS: Times of Israel -> 15 candidates
+2026-04-27 21:14:06,518 [INFO] news_agent.sources.rss: RSS: Ynet News -> 30 candidates
+2026-04-27 21:14:06,563 [INFO] news_agent.sources.rss: RSS: Guardian Middle East -> 20 candidates
+2026-04-27 21:14:06,588 [WARNING] news_agent.sources.rss: RSS fetch failed for Al Jazeera English: HTTPSConnectionPool(host='www.aljazeera.com', port=443): Max retries exceeded with url: /xml/rss/all.xml (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1129)')))
+2026-04-27 21:14:06,716 [WARNING] news_agent.sources.homepage: Homepage fetch failed for Al Jazeera English: HTTPSConnectionPool(host='www.aljazeera.com', port=443): Max retries exceeded with url: /middle-east/ (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1129)')))
+2026-04-27 21:14:06,768 [WARNING] news_agent.sources.rss: RSS fetch failed for AP World: 404 Client Error: Not Found for url: https://apnews.com/feed
+2026-04-27 21:14:06,852 [WARNING] news_agent.sources.rss: RSS fetch failed for CNN World: HTTPSConnectionPool(host='rss.cnn.com', port=443): Max retries exceeded with url: /rss/edition_world.rss (Caused by SSLError(SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:1129)')))
+2026-04-27 21:14:06,958 [INFO] news_agent.sources.rss: RSS: Haaretz English -> 0 candidates
+2026-04-27 21:14:07,060 [INFO] news_agent.sources.rss: RSS: Fox News World -> 25 candidates
+2026-04-27 21:14:07,157 [INFO] news_agent.sources.rss: RSS: Sky News -> 10 candidates
+2026-04-27 21:14:07,360 [INFO] news_agent.sources.rss: RSS: Middle East Eye -> 20 candidates
+2026-04-27 21:14:07,363 [INFO] news_agent.sources.rss: RSS: Arutz Sheva -> 0 candidates
+2026-04-27 21:14:07,606 [INFO] news_agent.sources.homepage: Homepage: AP World -> 100 candidates
+2026-04-27 21:14:07,651 [INFO] news_agent.sources.homepage: Homepage: Arutz Sheva -> 84 candidates
+2026-04-27 21:14:07,656 [WARNING] news_agent.sources.rss: RSS fetch failed for NTD News: 404 Client Error: Not Found for url: https://www.ntd.com/rss/world.xml
+2026-04-27 21:14:07,666 [WARNING] news_agent.sources.rss: RSS fetch failed for Reuters: 404 Client Error: Not Found for url: https://reutersagency.com/feed/
+2026-04-27 21:14:07,674 [WARNING] news_agent.sources.homepage: Homepage fetch failed for Walla News English: HTTPSConnectionPool(host='english.walla.co.il', port=443): Max retries exceeded with url: / (Caused by NameResolutionError("HTTPSConnection(host='english.walla.co.il', port=443): Failed to resolve 'english.walla.co.il' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-04-27 21:14:07,704 [INFO] news_agent.sources.homepage: Homepage: i24 News -> 30 candidates
+2026-04-27 21:14:07,732 [INFO] news_agent.sources.homepage: Homepage: Haaretz English -> 100 candidates
+2026-04-27 21:14:07,892 [INFO] news_agent.sources.homepage: Homepage: CNN World -> 100 candidates
+2026-04-27 21:14:08,013 [WARNING] news_agent.sources.homepage: Homepage fetch failed for Reuters: 401 Client Error: HTTP Forbidden for url: https://www.reuters.com/world/middle-east/
+2026-04-27 21:14:08,123 [WARNING] news_agent.sources.homepage: Homepage fetch failed for ICC: 403 Client Error: Forbidden for url: https://www.icc-cpi.int/news
+2026-04-27 21:14:08,249 [INFO] news_agent.sources.rss: RSS: UN News Middle East -> 30 candidates
+2026-04-27 21:14:08,319 [INFO] news_agent.sources.homepage: Homepage: Amnesty International -> 40 candidates
+2026-04-27 21:14:08,730 [INFO] news_agent.sources.homepage: Homepage: NTD News -> 35 candidates
+2026-04-27 21:14:13,319 [INFO] news_agent.jobs.pipeline: Filtered 729 candidates -> 244 new articles
+2026-04-27 21:14:13,320 [INFO] news_agent.jobs.pipeline: Starting extraction (8 workers) + scoring (overlapped)...
+2026-04-27 21:19:04,510 [INFO] news_agent.reports.markdown: Report written to /Users/ronday/Desktop/Hasbara project/news-agent/reports/report_20260427_1819.md

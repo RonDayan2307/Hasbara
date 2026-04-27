@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 import logging
-import random
+import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 
 from ..analysis.cache import AnalysisCache
 from ..analysis.claim_extractor import extract_claims
@@ -38,6 +40,53 @@ from ..utils.hashing import content_hash
 from ..utils.time import utcnow_iso, is_within_hours
 
 logger = logging.getLogger("news_agent.jobs.pipeline")
+
+
+def _collect_source(source, user_agent):
+    """Collect candidates from a single source (thread-safe)."""
+    candidates = []
+    try:
+        if source.rss_url:
+            candidates = fetch_rss(
+                source.rss_url, source.name, user_agent,
+                max_links=source.max_links,
+            )
+        if not candidates:
+            candidates = fetch_homepage(
+                source.homepage_url, source.name, user_agent,
+                max_links=source.max_links,
+                deny_patterns=source.deny_patterns,
+                prefer_patterns=source.prefer_patterns,
+            )
+        return source, candidates, None
+    except Exception as e:
+        return source, [], e
+
+
+def _extract_one(url, user_agent, domain_times, domain_lock):
+    """Fetch and parse one article (thread-safe with per-domain rate limiting)."""
+    domain = urlparse(url).netloc
+    with domain_lock:
+        last = domain_times.get(domain, 0)
+        wait = max(0, 0.5 - (time.time() - last))
+        if wait > 0:
+            time.sleep(wait)
+        domain_times[domain] = time.time()
+    return extract_article(url, user_agent)
+
+
+def _parse_published(published_str):
+    """Try to parse a published date string into a timezone-aware datetime."""
+    if not published_str:
+        return None
+    try:
+        pub_str = published_str.replace("Z", "+00:00")
+        pub_dt = datetime.fromisoformat(pub_str)
+        if pub_dt.tzinfo is None:
+            pub_dt = pub_dt.replace(tzinfo=timezone.utc)
+        return pub_dt
+    except Exception:
+        return None
 
 
 def run_pipeline(config: dict) -> RunManifest:
@@ -107,52 +156,42 @@ def run_pipeline(config: dict) -> RunManifest:
     enabled_sources = [s for s in sources if s.enabled]
     scraping_cfg = config.get("scraping", {})
     user_agent = scraping_cfg.get("user_agent", "NewsAgent/1.0")
-    delay_min = scraping_cfg.get("request_delay_min", 1.0)
-    delay_max = scraping_cfg.get("request_delay_max", 3.0)
     recency_hours = scraping_cfg.get("recency_window_hours", 2)
     respect_robots = scraping_cfg.get("respect_robots_txt", True)
 
-    # ===== COLLECTION =====
+    concurrency_cfg = config.get("concurrency", {})
+    collection_workers = concurrency_cfg.get("collection_workers", 8)
+    extraction_workers = concurrency_cfg.get("extraction_workers", 8)
+
+    # ===== COLLECTION (parallel) =====
     all_candidates = []
-    for source in enabled_sources:
-        manifest.sources_checked += 1
-        start_time = time.time()
-        candidates = []
+    logger.info(f"Collecting from {len(enabled_sources)} sources ({collection_workers} workers)...")
 
-        try:
-            # Try RSS first
-            if source.rss_url:
-                candidates = fetch_rss(
-                    source.rss_url, source.name, user_agent,
-                    max_links=source.max_links,
-                )
+    with ThreadPoolExecutor(max_workers=collection_workers) as pool:
+        futures = {
+            pool.submit(_collect_source, source, user_agent): source
+            for source in enabled_sources
+        }
+        for future in as_completed(futures):
+            source = futures[future]
+            manifest.sources_checked += 1
+            start_time = time.time()
 
-            # Fallback to homepage if RSS yields nothing
-            if not candidates:
-                candidates = fetch_homepage(
-                    source.homepage_url, source.name, user_agent,
-                    max_links=source.max_links,
-                    deny_patterns=source.deny_patterns,
-                    prefer_patterns=source.prefer_patterns,
-                )
-
-            elapsed_ms = int((time.time() - start_time) * 1000)
-            health_repo.insert(run_id, source.name, "ok",
-                               len(candidates), "", elapsed_ms)
-
-        except Exception as e:
-            elapsed_ms = int((time.time() - start_time) * 1000)
-            health_repo.insert(run_id, source.name, "error",
-                               0, str(e)[:500], elapsed_ms)
-            manifest.sources_failed += 1
-            manifest.errors.append(f"Source {source.name}: {e}")
-            logger.error(f"Source collection failed for {source.name}: {e}")
-            continue
-
-        all_candidates.extend(candidates)
-
-        # Polite delay between sources
-        time.sleep(random.uniform(delay_min, delay_max))
+            try:
+                src, candidates, error = future.result()
+                if error:
+                    raise error
+                elapsed_ms = int((time.time() - start_time) * 1000)
+                health_repo.insert(run_id, src.name, "ok",
+                                   len(candidates), "", elapsed_ms)
+                all_candidates.extend(candidates)
+            except Exception as e:
+                elapsed_ms = int((time.time() - start_time) * 1000)
+                health_repo.insert(run_id, source.name, "error",
+                                   0, str(e)[:500], elapsed_ms)
+                manifest.sources_failed += 1
+                manifest.errors.append(f"Source {source.name}: {e}")
+                logger.error(f"Source collection failed for {source.name}: {e}")
 
     # ===== DEDUP & FILTER =====
     seen_urls = set()
@@ -183,128 +222,149 @@ def run_pipeline(config: dict) -> RunManifest:
 
     logger.info(f"Filtered {len(all_candidates)} candidates -> {len(filtered)} new articles")
 
-    # ===== EXTRACTION =====
-    extracted_articles = []
-    for candidate, canonical in filtered:
-        time.sleep(random.uniform(0.5, 1.5))  # Polite delay
-
-        article_data = extract_article(candidate.url, user_agent)
-
-        title = article_data.get("title") or candidate.title or ""
-        body = article_data.get("body_text", "")
-
-        # Skip articles with very little content
-        if article_data.get("word_count", 0) < 50 and not body:
-            continue
-
-        # Store in DB
-        published = article_data.get("published") or (
-            candidate.published.isoformat() if candidate.published else None
-        )
-
-        try:
-            article_id = article_repo.insert(
-                url=candidate.url,
-                canonical_url=canonical,
-                source_name=candidate.source_name,
-                title=title,
-                author=article_data.get("author", ""),
-                published=published,
-                word_count=article_data.get("word_count", 0),
-                language="en",
-            )
-        except Exception as e:
-            logger.warning(f"Failed to insert article {candidate.url}: {e}")
-            continue
-
-        # Store text temporarily
-        c_hash = content_hash(body)
-        text_repo.store(article_id, body, c_hash)
-
-        extracted_articles.append({
-            "id": article_id,
-            "url": candidate.url,
-            "canonical_url": canonical,
-            "source_name": candidate.source_name,
-            "title": title,
-            "body_text": body,
-            "content_hash": c_hash,
-            "word_count": article_data.get("word_count", 0),
-        })
-        manifest.articles_collected += 1
-
-    # ===== SCORING =====
+    # ===== OVERLAPPED EXTRACTION + SCORING =====
     scored_articles = []
     model_failures = 0
+    articles_collected = 0
+    domain_times = {}
+    domain_lock = threading.Lock()
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=recency_hours)
 
-    for art in extracted_articles:
-        # Find source config for orientation/credibility
-        source_cfg = next(
-            (s for s in enabled_sources if s.name == art["source_name"]), None
-        )
-        orientation = source_cfg.orientation if source_cfg else "center"
-        credibility = source_cfg.credibility_level if source_cfg else "medium"
+    logger.info(f"Starting extraction ({extraction_workers} workers) + scoring (overlapped)...")
 
-        if ollama_available:
-            scores = score_article(
-                client, cache,
-                url=art["url"],
-                source_name=art["source_name"],
-                orientation=orientation,
-                credibility_level=credibility,
-                title=art["title"],
-                body_text=art["body_text"],
-                content_hash_val=art["content_hash"],
-                config=config,
+    with ThreadPoolExecutor(max_workers=extraction_workers) as extract_pool:
+        # Submit all extraction jobs
+        future_to_candidate = {
+            extract_pool.submit(
+                _extract_one, candidate.url, user_agent, domain_times, domain_lock
+            ): (candidate, canonical)
+            for candidate, canonical in filtered
+        }
+
+        # Process results as they complete — score immediately on main thread
+        for future in as_completed(future_to_candidate):
+            candidate, canonical = future_to_candidate[future]
+
+            try:
+                article_data = future.result()
+            except Exception as e:
+                logger.warning(f"Extraction failed for {candidate.url}: {e}")
+                continue
+
+            title = article_data.get("title") or candidate.title or ""
+            body = article_data.get("body_text", "")
+
+            # Skip articles with very little content
+            if article_data.get("word_count", 0) < 50 and not body:
+                continue
+
+            # Determine published date
+            published = article_data.get("published") or (
+                candidate.published.isoformat() if candidate.published else None
             )
-            if scores is None:
-                model_failures += 1
+
+            # Post-extraction recency check for homepage-scraped articles
+            if published and not candidate.published:
+                pub_dt = _parse_published(published)
+                if pub_dt and pub_dt < cutoff:
+                    logger.debug(f"Skipping stale article: {candidate.url}")
+                    continue
+
+            # Store in DB (main thread — SQLite safe)
+            try:
+                article_id = article_repo.insert(
+                    url=candidate.url,
+                    canonical_url=canonical,
+                    source_name=candidate.source_name,
+                    title=title,
+                    author=article_data.get("author", ""),
+                    published=published,
+                    word_count=article_data.get("word_count", 0),
+                    language="en",
+                )
+            except Exception as e:
+                logger.warning(f"Failed to insert article {candidate.url}: {e}")
+                continue
+
+            c_hash = content_hash(body)
+            text_repo.store(article_id, body, c_hash)
+            articles_collected += 1
+
+            art = {
+                "id": article_id,
+                "url": candidate.url,
+                "canonical_url": canonical,
+                "source_name": candidate.source_name,
+                "title": title,
+                "body_text": body,
+                "content_hash": c_hash,
+                "word_count": article_data.get("word_count", 0),
+            }
+
+            # === SCORE IMMEDIATELY (main thread, serial Ollama) ===
+            source_cfg = next(
+                (s for s in enabled_sources if s.name == art["source_name"]), None
+            )
+            orientation = source_cfg.orientation if source_cfg else "center"
+            credibility = source_cfg.credibility_level if source_cfg else "medium"
+
+            if ollama_available:
+                scores = score_article(
+                    client, cache,
+                    url=art["url"],
+                    source_name=art["source_name"],
+                    orientation=orientation,
+                    credibility_level=credibility,
+                    title=art["title"],
+                    body_text=art["body_text"],
+                    content_hash_val=art["content_hash"],
+                    config=config,
+                )
+                if scores is None:
+                    model_failures += 1
+                    scores = fallback_score(art["url"], art["title"],
+                                            art["body_text"], config)
+            else:
                 scores = fallback_score(art["url"], art["title"],
                                         art["body_text"], config)
-        else:
-            scores = fallback_score(art["url"], art["title"],
-                                    art["body_text"], config)
 
-        scores.article_id = art["id"]
+            scores.article_id = art["id"]
 
-        # Store score
-        score_repo.insert(
-            article_id=art["id"],
-            criteria=scores.criteria,
-            final_score=scores.final_score,
-            override_triggered=scores.override_triggered,
-            override_reason=scores.override_reason,
-            labels=scores.labels,
-            confidence=scores.confidence,
-            model_name=scores.model_name,
-            prompt_version=scores.prompt_version,
-            rationale=scores.rationale,
-        )
-        article_repo.update_score(art["id"], scores.final_score)
+            # Store score
+            score_repo.insert(
+                article_id=art["id"],
+                criteria=scores.criteria,
+                final_score=scores.final_score,
+                override_triggered=scores.override_triggered,
+                override_reason=scores.override_reason,
+                labels=scores.labels,
+                confidence=scores.confidence,
+                model_name=scores.model_name,
+                prompt_version=scores.prompt_version,
+                rationale=scores.rationale,
+            )
+            article_repo.update_score(art["id"], scores.final_score)
 
-        # Threshold handling
-        thresholds = config.get("thresholds", {})
-        if scores.final_score < thresholds.get("ignore_below", 4.0):
-            # Delete text immediately
-            text_repo.delete(art["id"])
-        elif scores.final_score >= thresholds.get("report_minimum", 6.0):
-            # Keep text with 14-day expiry
-            expires = (datetime.now(timezone.utc) + timedelta(days=14)).isoformat()
-            text_repo.store(art["id"], art["body_text"], art["content_hash"], expires)
-            # Schedule refetch
-            article_repo.schedule_refetch(art["id"])
-            scored_articles.append({**art, "final_score": scores.final_score, "scores": scores})
-        else:
-            # Short-term: set shorter expiry
-            expires = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
-            text_repo.store(art["id"], art["body_text"], art["content_hash"], expires)
+            # Threshold handling
+            thresholds = config.get("thresholds", {})
+            if scores.final_score < thresholds.get("ignore_below", 4.0):
+                text_repo.delete(art["id"])
+            elif scores.final_score >= thresholds.get("report_minimum", 6.0):
+                expires = (datetime.now(timezone.utc) + timedelta(days=14)).isoformat()
+                text_repo.store(art["id"], art["body_text"], art["content_hash"], expires)
+                article_repo.schedule_refetch(art["id"])
+                scored_articles.append({**art, "final_score": scores.final_score, "scores": scores})
+            else:
+                expires = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
+                text_repo.store(art["id"], art["body_text"], art["content_hash"], expires)
 
-        manifest.articles_scored += 1
+            manifest.articles_scored += 1
 
+    manifest.articles_collected = articles_collected
     manifest.model_failures = model_failures
-    if model_failures > len(extracted_articles) * 0.5 and extracted_articles:
+    if model_failures > articles_collected * 0.5 and articles_collected:
         manifest.degraded = True
-        manifest.errors.append(f"High model failure rate: {model_failures}/{len(extracted_articles)}")
+        manifest.errors.append(f"High model failure rate: {model_failures}/{articles_collected}")
 
     # ===== CLAIM EXTRACTION =====
     claim_threshold = config.get("thresholds", {}).get("claim_extraction_minimum", 7.0)
@@ -348,7 +408,7 @@ def run_pipeline(config: dict) -> RunManifest:
                 "article_indices": [i],
                 "existing_topic_id": None,
                 "lifecycle": "emerging",
-                "labels": art.get("scores", ArticleScores()).labels if "scores" in art else [],
+                "labels": art.get("scores", {}).labels if "scores" in art else [],
             })
 
     # Persist topics
@@ -470,7 +530,6 @@ def run_pipeline(config: dict) -> RunManifest:
         if not should_alert:
             for art in scored_articles:
                 if art.get("scores") and art["scores"].override_triggered:
-                    # Check if this article belongs to this topic
                     should_alert = True
                     break
 
