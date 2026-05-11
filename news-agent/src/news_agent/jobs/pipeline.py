@@ -41,6 +41,8 @@ from ..utils.time import utcnow_iso, is_within_hours
 
 logger = logging.getLogger("news_agent.jobs.pipeline")
 
+HEARTBEAT_INTERVAL_SECONDS = 240  # 4 minutes
+
 
 def _collect_source(source, user_agent):
     """Collect candidates from a single source (thread-safe)."""
@@ -87,6 +89,24 @@ def _parse_published(published_str):
         return pub_dt
     except Exception:
         return None
+
+
+def _start_progress_heartbeat(total, get_done, get_skipped, stop_event, label="Progress"):
+    """Log done/skipped/pending counts every HEARTBEAT_INTERVAL_SECONDS until stop_event is set."""
+    def _run():
+        start = time.time()
+        while not stop_event.wait(HEARTBEAT_INTERVAL_SECONDS):
+            done = get_done()
+            skipped = get_skipped()
+            pending = total - done - skipped
+            elapsed_min = (time.time() - start) / 60
+            logger.info(
+                f"{label} progress: done={done} skipped={skipped} pending={pending} "
+                f"of {total} ({elapsed_min:.1f}m elapsed)"
+            )
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    return t
 
 
 def run_pipeline(config: dict) -> RunManifest:
@@ -222,143 +242,203 @@ def run_pipeline(config: dict) -> RunManifest:
 
     logger.info(f"Filtered {len(all_candidates)} candidates -> {len(filtered)} new articles")
 
-    # ===== OVERLAPPED EXTRACTION + SCORING =====
-    scored_articles = []
-    model_failures = 0
-    articles_collected = 0
+    # ===== STAGE A: EXTRACTION (parallel) =====
     domain_times = {}
     domain_lock = threading.Lock()
     cutoff = datetime.now(timezone.utc) - timedelta(hours=recency_hours)
+    total_filtered = len(filtered)
 
-    logger.info(f"Starting extraction ({extraction_workers} workers) + scoring (overlapped)...")
+    logger.info(f"Extracting {total_filtered} articles ({extraction_workers} workers)...")
+    extracted = []  # (candidate, canonical, article_data | None)
+    extracted_count = 0
+    extract_stop = threading.Event()
+    if total_filtered > 0:
+        _start_progress_heartbeat(
+            total_filtered,
+            lambda: extracted_count,
+            lambda: 0,
+            extract_stop,
+            label="Extraction",
+        )
 
     with ThreadPoolExecutor(max_workers=extraction_workers) as extract_pool:
-        # Submit all extraction jobs
         future_to_candidate = {
             extract_pool.submit(
                 _extract_one, candidate.url, user_agent, domain_times, domain_lock
             ): (candidate, canonical)
             for candidate, canonical in filtered
         }
-
-        # Process results as they complete — score immediately on main thread
         for future in as_completed(future_to_candidate):
             candidate, canonical = future_to_candidate[future]
-
             try:
                 article_data = future.result()
             except Exception as e:
-                logger.warning(f"Extraction failed for {candidate.url}: {e}")
+                logger.warning(f"Extraction crashed for {candidate.url}: {e}")
+                article_data = None
+            extracted.append((candidate, canonical, article_data))
+            extracted_count += 1
+
+    extract_stop.set()
+    logger.info(f"Extraction complete: attempted={extracted_count}")
+
+    # ===== STAGE B: SIFTING (sequential, fast) =====
+    # Decide which articles deserve a (slow, serial) Ollama scoring call.
+    sift_fetch_failed = 0
+    sift_low_content = 0
+    sift_stale = 0
+    to_score = []  # (candidate, canonical, article_data, published)
+
+    for candidate, canonical, article_data in extracted:
+        if article_data is None:
+            sift_fetch_failed += 1
+            continue
+
+        body = article_data.get("body_text", "")
+        # Treats the extractor's empty-default result (HTTP failures) and
+        # genuinely empty pages the same way — both are unscoreable.
+        if article_data.get("word_count", 0) < 50 and not body:
+            sift_low_content += 1
+            continue
+
+        published = article_data.get("published") or (
+            candidate.published.isoformat() if candidate.published else None
+        )
+
+        # Post-extraction recency check for homepage-scraped articles
+        # (RSS-sourced ones already passed the recency filter at collection).
+        if published and not candidate.published:
+            pub_dt = _parse_published(published)
+            if pub_dt and pub_dt < cutoff:
+                logger.debug(f"Sifting out stale article: {candidate.url}")
+                sift_stale += 1
                 continue
 
-            title = article_data.get("title") or candidate.title or ""
-            body = article_data.get("body_text", "")
+        to_score.append((candidate, canonical, article_data, published))
 
-            # Skip articles with very little content
-            if article_data.get("word_count", 0) < 50 and not body:
-                continue
+    total_to_score = len(to_score)
+    logger.info(
+        f"Sifting complete: kept={total_to_score}, "
+        f"stale={sift_stale}, low_content={sift_low_content}, "
+        f"fetch_failed={sift_fetch_failed} (of {total_filtered} filtered)"
+    )
 
-            # Determine published date
-            published = article_data.get("published") or (
-                candidate.published.isoformat() if candidate.published else None
+    # ===== STAGE C: SCORING (serial Ollama) =====
+    scored_articles = []
+    model_failures = 0
+    articles_collected = 0
+    skip_db_insert = 0
+    scored_count = 0
+
+    score_stop = threading.Event()
+    if total_to_score > 0:
+        logger.info(f"Scoring {total_to_score} articles (serial Ollama)...")
+        _start_progress_heartbeat(
+            total_to_score,
+            lambda: scored_count,
+            lambda: skip_db_insert,
+            score_stop,
+            label="Scoring",
+        )
+
+    for candidate, canonical, article_data, published in to_score:
+        title = article_data.get("title") or candidate.title or ""
+        body = article_data.get("body_text", "")
+
+        # Store in DB (main thread — SQLite safe)
+        try:
+            article_id = article_repo.insert(
+                url=candidate.url,
+                canonical_url=canonical,
+                source_name=candidate.source_name,
+                title=title,
+                author=article_data.get("author", ""),
+                published=published,
+                word_count=article_data.get("word_count", 0),
+                language="en",
             )
+        except Exception as e:
+            logger.warning(f"Failed to insert article {candidate.url}: {e}")
+            skip_db_insert += 1
+            continue
 
-            # Post-extraction recency check for homepage-scraped articles
-            if published and not candidate.published:
-                pub_dt = _parse_published(published)
-                if pub_dt and pub_dt < cutoff:
-                    logger.debug(f"Skipping stale article: {candidate.url}")
-                    continue
+        c_hash = content_hash(body)
+        text_repo.store(article_id, body, c_hash)
+        articles_collected += 1
 
-            # Store in DB (main thread — SQLite safe)
-            try:
-                article_id = article_repo.insert(
-                    url=candidate.url,
-                    canonical_url=canonical,
-                    source_name=candidate.source_name,
-                    title=title,
-                    author=article_data.get("author", ""),
-                    published=published,
-                    word_count=article_data.get("word_count", 0),
-                    language="en",
-                )
-            except Exception as e:
-                logger.warning(f"Failed to insert article {candidate.url}: {e}")
-                continue
+        art = {
+            "id": article_id,
+            "url": candidate.url,
+            "canonical_url": canonical,
+            "source_name": candidate.source_name,
+            "title": title,
+            "body_text": body,
+            "content_hash": c_hash,
+            "word_count": article_data.get("word_count", 0),
+        }
 
-            c_hash = content_hash(body)
-            text_repo.store(article_id, body, c_hash)
-            articles_collected += 1
+        source_cfg = next(
+            (s for s in enabled_sources if s.name == art["source_name"]), None
+        )
+        orientation = source_cfg.orientation if source_cfg else "center"
+        credibility = source_cfg.credibility_level if source_cfg else "medium"
 
-            art = {
-                "id": article_id,
-                "url": candidate.url,
-                "canonical_url": canonical,
-                "source_name": candidate.source_name,
-                "title": title,
-                "body_text": body,
-                "content_hash": c_hash,
-                "word_count": article_data.get("word_count", 0),
-            }
-
-            # === SCORE IMMEDIATELY (main thread, serial Ollama) ===
-            source_cfg = next(
-                (s for s in enabled_sources if s.name == art["source_name"]), None
+        if ollama_available:
+            scores = score_article(
+                client, cache,
+                url=art["url"],
+                source_name=art["source_name"],
+                orientation=orientation,
+                credibility_level=credibility,
+                title=art["title"],
+                body_text=art["body_text"],
+                content_hash_val=art["content_hash"],
+                config=config,
             )
-            orientation = source_cfg.orientation if source_cfg else "center"
-            credibility = source_cfg.credibility_level if source_cfg else "medium"
-
-            if ollama_available:
-                scores = score_article(
-                    client, cache,
-                    url=art["url"],
-                    source_name=art["source_name"],
-                    orientation=orientation,
-                    credibility_level=credibility,
-                    title=art["title"],
-                    body_text=art["body_text"],
-                    content_hash_val=art["content_hash"],
-                    config=config,
-                )
-                if scores is None:
-                    model_failures += 1
-                    scores = fallback_score(art["url"], art["title"],
-                                            art["body_text"], config)
-            else:
+            if scores is None:
+                model_failures += 1
                 scores = fallback_score(art["url"], art["title"],
                                         art["body_text"], config)
+        else:
+            scores = fallback_score(art["url"], art["title"],
+                                    art["body_text"], config)
 
-            scores.article_id = art["id"]
+        scores.article_id = art["id"]
 
-            # Store score
-            score_repo.insert(
-                article_id=art["id"],
-                criteria=scores.criteria,
-                final_score=scores.final_score,
-                override_triggered=scores.override_triggered,
-                override_reason=scores.override_reason,
-                labels=scores.labels,
-                confidence=scores.confidence,
-                model_name=scores.model_name,
-                prompt_version=scores.prompt_version,
-                rationale=scores.rationale,
-            )
-            article_repo.update_score(art["id"], scores.final_score)
+        score_repo.insert(
+            article_id=art["id"],
+            criteria=scores.criteria,
+            final_score=scores.final_score,
+            override_triggered=scores.override_triggered,
+            override_reason=scores.override_reason,
+            labels=scores.labels,
+            confidence=scores.confidence,
+            model_name=scores.model_name,
+            prompt_version=scores.prompt_version,
+            rationale=scores.rationale,
+        )
+        article_repo.update_score(art["id"], scores.final_score)
 
-            # Threshold handling
-            thresholds = config.get("thresholds", {})
-            if scores.final_score < thresholds.get("ignore_below", 4.0):
-                text_repo.delete(art["id"])
-            elif scores.final_score >= thresholds.get("report_minimum", 6.0):
-                expires = (datetime.now(timezone.utc) + timedelta(days=14)).isoformat()
-                text_repo.store(art["id"], art["body_text"], art["content_hash"], expires)
-                article_repo.schedule_refetch(art["id"])
-                scored_articles.append({**art, "final_score": scores.final_score, "scores": scores})
-            else:
-                expires = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
-                text_repo.store(art["id"], art["body_text"], art["content_hash"], expires)
+        # Threshold handling
+        thresholds = config.get("thresholds", {})
+        if scores.final_score < thresholds.get("ignore_below", 4.0):
+            text_repo.delete(art["id"])
+        elif scores.final_score >= thresholds.get("report_minimum", 6.0):
+            expires = (datetime.now(timezone.utc) + timedelta(days=14)).isoformat()
+            text_repo.store(art["id"], art["body_text"], art["content_hash"], expires)
+            article_repo.schedule_refetch(art["id"])
+            scored_articles.append({**art, "final_score": scores.final_score, "scores": scores})
+        else:
+            expires = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
+            text_repo.store(art["id"], art["body_text"], art["content_hash"], expires)
 
-            manifest.articles_scored += 1
+        manifest.articles_scored += 1
+        scored_count += 1
+
+    score_stop.set()
+    logger.info(
+        f"Scoring complete: scored={scored_count}, db_insert_failed={skip_db_insert} "
+        f"(of {total_to_score} sifted)"
+    )
 
     manifest.articles_collected = articles_collected
     manifest.model_failures = model_failures

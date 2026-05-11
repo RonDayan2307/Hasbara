@@ -117,7 +117,7 @@ sources:
 
   - name: AP World
     homepage_url: https://apnews.com/world-news
-    rss_url: https://apnews.com/feed
+    rss_url: null
     enabled: true
     language: en
     region: international
@@ -196,22 +196,6 @@ sources:
     deny_patterns: []
     prefer_patterns: []
 
-  - name: Reuters
-    homepage_url: https://www.reuters.com/world/middle-east/
-    rss_url: https://www.reutersagency.com/feed/
-    enabled: true
-    language: en
-    region: international
-    orientation: center
-    credibility_level: very_high
-    priority: 1
-    max_links: 100
-    deny_patterns: []
-    prefer_patterns:
-      - israel
-      - gaza
-      - middle-east
-
   - name: CNN World
     homepage_url: https://edition.cnn.com/world
     rss_url: https://rss.cnn.com/rss/edition_world.rss
@@ -260,7 +244,7 @@ sources:
 
   - name: NTD News
     homepage_url: https://www.ntd.com/world.html
-    rss_url: https://www.ntd.com/rss/world.xml
+    rss_url: null
     enabled: true
     language: en
     region: international
@@ -302,7 +286,7 @@ sources:
   - name: Walla News English
     homepage_url: https://english.walla.co.il/
     rss_url: null
-    enabled: true
+    enabled: false
     language: en
     region: israel
     orientation: center

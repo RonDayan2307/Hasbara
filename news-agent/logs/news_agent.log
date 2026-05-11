@@ -189,3 +189,280 @@
 2026-04-27 21:14:13,319 [INFO] news_agent.jobs.pipeline: Filtered 729 candidates -> 244 new articles
 2026-04-27 21:14:13,320 [INFO] news_agent.jobs.pipeline: Starting extraction (8 workers) + scoring (overlapped)...
 2026-04-27 21:19:04,510 [INFO] news_agent.reports.markdown: Report written to /Users/ronday/Desktop/Hasbara project/news-agent/reports/report_20260427_1819.md
+2026-04-28 14:53:08,250 [INFO] news_agent.jobs.pipeline: Collecting from 21 sources (8 workers)...
+2026-04-28 14:53:08,659 [INFO] news_agent.sources.rss: RSS: Jerusalem Post -> 26 candidates
+2026-04-28 14:53:08,672 [INFO] news_agent.sources.rss: RSS: France 24 English -> 30 candidates
+2026-04-28 14:53:08,710 [INFO] news_agent.sources.rss: RSS: BBC Middle East -> 35 candidates
+2026-04-28 14:53:08,739 [INFO] news_agent.sources.rss: RSS: Times of Israel -> 13 candidates
+2026-04-28 14:53:08,751 [INFO] news_agent.sources.rss: RSS: Ynet News -> 30 candidates
+2026-04-28 14:53:08,837 [WARNING] news_agent.sources.rss: RSS fetch failed for Al Jazeera English: HTTPSConnectionPool(host='www.aljazeera.com', port=443): Max retries exceeded with url: /xml/rss/all.xml (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1129)')))
+2026-04-28 14:53:09,049 [INFO] news_agent.sources.rss: RSS: Guardian Middle East -> 20 candidates
+2026-04-28 14:53:09,111 [WARNING] news_agent.sources.rss: RSS fetch failed for CNN World: HTTPSConnectionPool(host='rss.cnn.com', port=443): Max retries exceeded with url: /rss/edition_world.rss (Caused by SSLError(SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:1129)')))
+2026-04-28 14:53:09,121 [WARNING] news_agent.sources.rss: RSS fetch failed for AP World: 404 Client Error: Not Found for url: https://apnews.com/feed
+2026-04-28 14:53:09,124 [WARNING] news_agent.sources.homepage: Homepage fetch failed for Al Jazeera English: HTTPSConnectionPool(host='www.aljazeera.com', port=443): Max retries exceeded with url: /middle-east/ (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1129)')))
+2026-04-28 14:53:09,358 [INFO] news_agent.sources.rss: RSS: Haaretz English -> 0 candidates
+2026-04-28 14:53:09,437 [INFO] news_agent.sources.rss: RSS: Sky News -> 10 candidates
+2026-04-28 14:53:09,942 [INFO] news_agent.sources.rss: RSS: Fox News World -> 25 candidates
+2026-04-28 14:53:10,029 [INFO] news_agent.sources.homepage: Homepage: AP World -> 100 candidates
+2026-04-28 14:53:10,184 [WARNING] news_agent.sources.rss: RSS fetch failed for Reuters: 404 Client Error: Not Found for url: https://reutersagency.com/feed/
+2026-04-28 14:53:10,208 [WARNING] news_agent.sources.rss: RSS fetch failed for NTD News: 404 Client Error: Not Found for url: https://www.ntd.com/rss/world.xml
+2026-04-28 14:53:10,213 [INFO] news_agent.sources.homepage: Homepage: i24 News -> 32 candidates
+2026-04-28 14:53:10,267 [WARNING] news_agent.sources.homepage: Homepage fetch failed for Walla News English: HTTPSConnectionPool(host='english.walla.co.il', port=443): Max retries exceeded with url: / (Caused by NameResolutionError("HTTPSConnection(host='english.walla.co.il', port=443): Failed to resolve 'english.walla.co.il' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-04-28 14:53:10,349 [INFO] news_agent.sources.homepage: Homepage: CNN World -> 100 candidates
+2026-04-28 14:53:10,357 [INFO] news_agent.sources.rss: RSS: Arutz Sheva -> 0 candidates
+2026-04-28 14:53:10,403 [INFO] news_agent.sources.homepage: Homepage: Haaretz English -> 100 candidates
+2026-04-28 14:53:10,510 [WARNING] news_agent.sources.homepage: Homepage fetch failed for Reuters: 401 Client Error: HTTP Forbidden for url: https://www.reuters.com/world/middle-east/
+2026-04-28 14:53:10,584 [INFO] news_agent.sources.homepage: Homepage: Arutz Sheva -> 84 candidates
+2026-04-28 14:53:10,682 [INFO] news_agent.sources.rss: RSS: Middle East Eye -> 20 candidates
+2026-04-28 14:53:10,786 [WARNING] news_agent.sources.homepage: Homepage fetch failed for ICC: 403 Client Error: Forbidden for url: https://www.icc-cpi.int/news
+2026-04-28 14:53:10,965 [INFO] news_agent.sources.rss: RSS: UN News Middle East -> 30 candidates
+2026-04-28 14:53:10,995 [INFO] news_agent.sources.homepage: Homepage: Amnesty International -> 40 candidates
+2026-04-28 14:53:11,384 [INFO] news_agent.sources.homepage: Homepage: NTD News -> 35 candidates
+2026-04-28 14:53:16,076 [INFO] news_agent.jobs.pipeline: Filtered 730 candidates -> 328 new articles
+2026-04-28 14:53:16,076 [INFO] news_agent.jobs.pipeline: Starting extraction (8 workers) + scoring (overlapped)...
+2026-04-28 15:25:13,013 [INFO] news_agent.analysis.claims: Extracted 5 claims from https://www.theguardian.com/world/live/2026/apr/28/middle-east-crisis-live-iran-us-israel-lebanon-hormuz-nuclear-oil-latest-news-updates
+2026-04-28 15:26:21,034 [INFO] news_agent.analysis.claims: Extracted 6 claims from https://apnews.com/live/iran-war-israel-trump-04-28-2026
+2026-04-28 15:27:15,106 [INFO] news_agent.analysis.claims: Extracted 5 claims from https://www.i24news.tv/en/news/international/europe/artc-zelensky-threatens-sanctions-against-israel-over-russian-stolen-grain-ship-arriving-at-haifa
+2026-04-28 15:28:11,302 [INFO] news_agent.analysis.claims: Extracted 5 claims from https://www.israelnationalnews.com/news/426206
+2026-04-28 15:28:56,557 [INFO] news_agent.analysis.claims: Extracted 3 claims from https://www.middleeasteye.net/news/icc-chief-prosecutor-karim-khan-address-oxford-union-next-week
+2026-04-28 15:32:14,486 [INFO] news_agent.reports.markdown: Report written to /Users/ronday/Desktop/Hasbara project/news-agent/reports/report_20260428_1232.md
+2026-04-28 16:09:01,264 [INFO] news_agent.jobs.pipeline: Collecting from 21 sources (8 workers)...
+2026-04-28 16:09:01,608 [INFO] news_agent.sources.rss: RSS: Jerusalem Post -> 26 candidates
+2026-04-28 16:09:01,656 [INFO] news_agent.sources.rss: RSS: Times of Israel -> 12 candidates
+2026-04-28 16:09:01,772 [INFO] news_agent.sources.rss: RSS: Ynet News -> 30 candidates
+2026-04-28 16:09:01,781 [INFO] news_agent.sources.rss: RSS: France 24 English -> 30 candidates
+2026-04-28 16:09:01,789 [INFO] news_agent.sources.rss: RSS: BBC Middle East -> 31 candidates
+2026-04-28 16:09:01,809 [INFO] news_agent.sources.rss: RSS: Guardian Middle East -> 20 candidates
+2026-04-28 16:09:01,823 [WARNING] news_agent.sources.rss: RSS fetch failed for Al Jazeera English: HTTPSConnectionPool(host='www.aljazeera.com', port=443): Max retries exceeded with url: /xml/rss/all.xml (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1129)')))
+2026-04-28 16:09:01,864 [WARNING] news_agent.sources.rss: RSS fetch failed for AP World: 404 Client Error: Not Found for url: https://apnews.com/feed
+2026-04-28 16:09:01,891 [WARNING] news_agent.sources.homepage: Homepage fetch failed for Al Jazeera English: HTTPSConnectionPool(host='www.aljazeera.com', port=443): Max retries exceeded with url: /middle-east/ (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1129)')))
+2026-04-28 16:09:02,086 [WARNING] news_agent.sources.rss: RSS fetch failed for CNN World: HTTPSConnectionPool(host='rss.cnn.com', port=443): Max retries exceeded with url: /rss/edition_world.rss (Caused by SSLError(SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:1129)')))
+2026-04-28 16:09:02,249 [INFO] news_agent.sources.rss: RSS: Fox News World -> 25 candidates
+2026-04-28 16:09:02,256 [INFO] news_agent.sources.rss: RSS: Haaretz English -> 0 candidates
+2026-04-28 16:09:02,381 [INFO] news_agent.sources.rss: RSS: Sky News -> 10 candidates
+2026-04-28 16:09:02,459 [INFO] news_agent.sources.rss: RSS: Middle East Eye -> 20 candidates
+2026-04-28 16:09:02,611 [INFO] news_agent.sources.rss: RSS: Arutz Sheva -> 0 candidates
+2026-04-28 16:09:02,630 [WARNING] news_agent.sources.homepage: Homepage fetch failed for Walla News English: HTTPSConnectionPool(host='english.walla.co.il', port=443): Max retries exceeded with url: / (Caused by NameResolutionError("HTTPSConnection(host='english.walla.co.il', port=443): Failed to resolve 'english.walla.co.il' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-04-28 16:09:02,716 [INFO] news_agent.sources.homepage: Homepage: AP World -> 100 candidates
+2026-04-28 16:09:02,820 [WARNING] news_agent.sources.rss: RSS fetch failed for NTD News: 404 Client Error: Not Found for url: https://www.ntd.com/rss/world.xml
+2026-04-28 16:09:02,845 [INFO] news_agent.sources.homepage: Homepage: i24 News -> 32 candidates
+2026-04-28 16:09:02,928 [INFO] news_agent.sources.homepage: Homepage: Arutz Sheva -> 85 candidates
+2026-04-28 16:09:03,029 [WARNING] news_agent.sources.rss: RSS fetch failed for Reuters: 404 Client Error: Not Found for url: https://reutersagency.com/feed/
+2026-04-28 16:09:03,068 [INFO] news_agent.sources.homepage: Homepage: Haaretz English -> 100 candidates
+2026-04-28 16:09:03,263 [INFO] news_agent.sources.homepage: Homepage: CNN World -> 100 candidates
+2026-04-28 16:09:03,319 [WARNING] news_agent.sources.homepage: Homepage fetch failed for ICC: 403 Client Error: Forbidden for url: https://www.icc-cpi.int/news
+2026-04-28 16:09:03,441 [INFO] news_agent.sources.rss: RSS: UN News Middle East -> 30 candidates
+2026-04-28 16:09:03,468 [INFO] news_agent.sources.homepage: Homepage: Amnesty International -> 40 candidates
+2026-04-28 16:09:03,487 [WARNING] news_agent.sources.homepage: Homepage fetch failed for Reuters: 401 Client Error: HTTP Forbidden for url: https://www.reuters.com/world/middle-east/
+2026-04-28 16:09:03,948 [INFO] news_agent.sources.homepage: Homepage: NTD News -> 35 candidates
+2026-04-28 16:09:09,113 [INFO] news_agent.jobs.pipeline: Filtered 726 candidates -> 309 new articles
+2026-04-28 16:09:09,113 [INFO] news_agent.jobs.pipeline: Starting extraction (8 workers) + scoring (overlapped)...
+2026-04-28 16:27:14,026 [INFO] news_agent.analysis.claims: Extracted 6 claims from https://www.france24.com/en/middle-east/20260428-israel-destroyed-houses-roads-trees-people-returning-southern-lebanon
+2026-04-28 16:28:08,752 [INFO] news_agent.analysis.claims: Extracted 5 claims from https://www.bbc.com/news/articles/cqjplqgd1r2o?at_medium=RSS&at_campaign=rss
+2026-04-28 16:29:24,550 [INFO] news_agent.analysis.claims: Extracted 11 claims from https://www.middleeasteye.net/news/we-were-left-alone-along-israel-yellow-line-southern-lebanese-feel-abandoned-state
+2026-04-28 16:30:25,826 [INFO] news_agent.analysis.claims: Extracted 6 claims from https://www.middleeasteye.net/news/netanyahu-helped-create-genocide-gaza-former-top-biden-official-says
+2026-04-28 16:31:17,844 [INFO] news_agent.analysis.claims: Extracted 6 claims from https://www.israelnationalnews.com/news/426215
+2026-04-28 16:34:50,629 [INFO] news_agent.reports.markdown: Report written to /Users/ronday/Desktop/Hasbara project/news-agent/reports/report_20260428_1334.md
+2026-04-29 12:06:23,206 [INFO] news_agent.jobs.pipeline: Collecting from 21 sources (8 workers)...
+2026-04-29 12:06:23,542 [INFO] news_agent.sources.rss: RSS: BBC Middle East -> 34 candidates
+2026-04-29 12:06:23,650 [INFO] news_agent.sources.rss: RSS: Jerusalem Post -> 26 candidates
+2026-04-29 12:06:23,662 [INFO] news_agent.sources.rss: RSS: Ynet News -> 30 candidates
+2026-04-29 12:06:23,673 [INFO] news_agent.sources.rss: RSS: Times of Israel -> 15 candidates
+2026-04-29 12:06:23,692 [INFO] news_agent.sources.rss: RSS: France 24 English -> 29 candidates
+2026-04-29 12:06:23,711 [INFO] news_agent.sources.rss: RSS: Guardian Middle East -> 20 candidates
+2026-04-29 12:06:23,747 [WARNING] news_agent.sources.rss: RSS fetch failed for Al Jazeera English: HTTPSConnectionPool(host='www.aljazeera.com', port=443): Max retries exceeded with url: /xml/rss/all.xml (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1129)')))
+2026-04-29 12:06:23,780 [WARNING] news_agent.sources.rss: RSS fetch failed for AP World: 404 Client Error: Not Found for url: https://apnews.com/feed
+2026-04-29 12:06:23,802 [WARNING] news_agent.sources.homepage: Homepage fetch failed for Al Jazeera English: HTTPSConnectionPool(host='www.aljazeera.com', port=443): Max retries exceeded with url: /middle-east/ (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1129)')))
+2026-04-29 12:06:23,854 [WARNING] news_agent.sources.rss: RSS fetch failed for CNN World: HTTPSConnectionPool(host='rss.cnn.com', port=443): Max retries exceeded with url: /rss/edition_world.rss (Caused by SSLError(SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:1129)')))
+2026-04-29 12:06:24,115 [INFO] news_agent.sources.rss: RSS: Fox News World -> 25 candidates
+2026-04-29 12:06:24,142 [INFO] news_agent.sources.rss: RSS: Haaretz English -> 0 candidates
+2026-04-29 12:06:24,461 [INFO] news_agent.sources.rss: RSS: Middle East Eye -> 20 candidates
+2026-04-29 12:06:24,618 [INFO] news_agent.sources.rss: RSS: Arutz Sheva -> 0 candidates
+2026-04-29 12:06:24,683 [INFO] news_agent.sources.homepage: Homepage: AP World -> 100 candidates
+2026-04-29 12:06:24,705 [WARNING] news_agent.sources.rss: RSS fetch failed for Reuters: 404 Client Error: Not Found for url: https://reutersagency.com/feed/
+2026-04-29 12:06:24,711 [INFO] news_agent.sources.homepage: Homepage: i24 News -> 33 candidates
+2026-04-29 12:06:24,756 [WARNING] news_agent.sources.rss: RSS fetch failed for NTD News: 404 Client Error: Not Found for url: https://www.ntd.com/rss/world.xml
+2026-04-29 12:06:24,850 [INFO] news_agent.sources.homepage: Homepage: Arutz Sheva -> 87 candidates
+2026-04-29 12:06:24,870 [WARNING] news_agent.sources.homepage: Homepage fetch failed for Walla News English: HTTPSConnectionPool(host='english.walla.co.il', port=443): Max retries exceeded with url: / (Caused by NameResolutionError("HTTPSConnection(host='english.walla.co.il', port=443): Failed to resolve 'english.walla.co.il' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-04-29 12:06:24,954 [INFO] news_agent.sources.homepage: Homepage: CNN World -> 100 candidates
+2026-04-29 12:06:25,003 [INFO] news_agent.sources.homepage: Homepage: Haaretz English -> 100 candidates
+2026-04-29 12:06:25,099 [WARNING] news_agent.sources.homepage: Homepage fetch failed for Reuters: 401 Client Error: HTTP Forbidden for url: https://www.reuters.com/world/middle-east/
+2026-04-29 12:06:25,186 [INFO] news_agent.sources.rss: RSS: Sky News -> 10 candidates
+2026-04-29 12:06:25,276 [WARNING] news_agent.sources.homepage: Homepage fetch failed for ICC: 403 Client Error: Forbidden for url: https://www.icc-cpi.int/news
+2026-04-29 12:06:25,524 [INFO] news_agent.sources.rss: RSS: UN News Middle East -> 30 candidates
+2026-04-29 12:06:25,561 [INFO] news_agent.sources.homepage: Homepage: Amnesty International -> 40 candidates
+2026-04-29 12:06:25,886 [INFO] news_agent.sources.homepage: Homepage: NTD News -> 35 candidates
+2026-04-29 12:06:31,907 [INFO] news_agent.jobs.pipeline: Filtered 734 candidates -> 347 new articles
+2026-04-29 12:06:31,907 [INFO] news_agent.jobs.pipeline: Starting extraction (8 workers) + scoring (overlapped)...
+2026-04-29 12:31:33,654 [INFO] news_agent.analysis.claims: Extracted 2 claims from https://www.middleeasteye.net/live-blog/live-blog-update/israeli-forces-kill-five-people-across-gaza-last-24-hours
+2026-04-29 12:32:15,260 [INFO] news_agent.analysis.claims: Extracted 4 claims from https://www.middleeasteye.net/live-blog/live-blog-update/two-israeli-soldiers-wounded-occupied-west-bank
+2026-04-29 12:33:59,132 [INFO] news_agent.reports.markdown: Report written to /Users/ronday/Desktop/Hasbara/news-agent/reports/report_20260429_0933.md
+2026-04-29 12:43:59,342 [INFO] news_agent.jobs.pipeline: Collecting from 21 sources (8 workers)...
+2026-04-29 12:43:59,644 [INFO] news_agent.sources.rss: RSS: BBC Middle East -> 34 candidates
+2026-04-29 12:43:59,668 [INFO] news_agent.sources.rss: RSS: Jerusalem Post -> 26 candidates
+2026-04-29 12:43:59,808 [INFO] news_agent.sources.rss: RSS: Times of Israel -> 15 candidates
+2026-04-29 12:43:59,818 [INFO] news_agent.sources.rss: RSS: Ynet News -> 30 candidates
+2026-04-29 12:43:59,828 [INFO] news_agent.sources.rss: RSS: France 24 English -> 29 candidates
+2026-04-29 12:43:59,894 [WARNING] news_agent.sources.rss: RSS fetch failed for Al Jazeera English: HTTPSConnectionPool(host='www.aljazeera.com', port=443): Max retries exceeded with url: /xml/rss/all.xml (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1129)')))
+2026-04-29 12:43:59,940 [WARNING] news_agent.sources.rss: RSS fetch failed for AP World: 404 Client Error: Not Found for url: https://apnews.com/feed
+2026-04-29 12:43:59,958 [WARNING] news_agent.sources.rss: RSS fetch failed for CNN World: HTTPSConnectionPool(host='rss.cnn.com', port=443): Max retries exceeded with url: /rss/edition_world.rss (Caused by SSLError(SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:1129)')))
+2026-04-29 12:43:59,972 [WARNING] news_agent.sources.homepage: Homepage fetch failed for Al Jazeera English: HTTPSConnectionPool(host='www.aljazeera.com', port=443): Max retries exceeded with url: /middle-east/ (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1129)')))
+2026-04-29 12:44:00,062 [INFO] news_agent.sources.rss: RSS: Guardian Middle East -> 20 candidates
+2026-04-29 12:44:00,219 [INFO] news_agent.sources.rss: RSS: Middle East Eye -> 20 candidates
+2026-04-29 12:44:00,254 [INFO] news_agent.sources.rss: RSS: Haaretz English -> 0 candidates
+2026-04-29 12:44:00,286 [INFO] news_agent.sources.rss: RSS: Sky News -> 10 candidates
+2026-04-29 12:44:00,338 [INFO] news_agent.sources.rss: RSS: Fox News World -> 25 candidates
+2026-04-29 12:44:00,479 [INFO] news_agent.sources.rss: RSS: Arutz Sheva -> 0 candidates
+2026-04-29 12:44:00,538 [WARNING] news_agent.sources.homepage: Homepage fetch failed for Walla News English: HTTPSConnectionPool(host='english.walla.co.il', port=443): Max retries exceeded with url: / (Caused by NameResolutionError("HTTPSConnection(host='english.walla.co.il', port=443): Failed to resolve 'english.walla.co.il' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-04-29 12:44:00,686 [INFO] news_agent.sources.homepage: Homepage: Arutz Sheva -> 88 candidates
+2026-04-29 12:44:00,720 [INFO] news_agent.sources.homepage: Homepage: i24 News -> 33 candidates
+2026-04-29 12:44:00,774 [INFO] news_agent.sources.homepage: Homepage: AP World -> 100 candidates
+2026-04-29 12:44:00,900 [WARNING] news_agent.sources.rss: RSS fetch failed for Reuters: 404 Client Error: Not Found for url: https://reutersagency.com/feed/
+2026-04-29 12:44:00,992 [WARNING] news_agent.sources.rss: RSS fetch failed for NTD News: 404 Client Error: Not Found for url: https://www.ntd.com/rss/world.xml
+2026-04-29 12:44:01,144 [INFO] news_agent.sources.homepage: Homepage: Haaretz English -> 100 candidates
+2026-04-29 12:44:01,162 [INFO] news_agent.sources.homepage: Homepage: CNN World -> 100 candidates
+2026-04-29 12:44:01,174 [WARNING] news_agent.sources.homepage: Homepage fetch failed for ICC: 403 Client Error: Forbidden for url: https://www.icc-cpi.int/news
+2026-04-29 12:44:01,265 [WARNING] news_agent.sources.homepage: Homepage fetch failed for Reuters: 401 Client Error: HTTP Forbidden for url: https://www.reuters.com/world/middle-east/
+2026-04-29 12:44:01,283 [INFO] news_agent.sources.rss: RSS: UN News Middle East -> 30 candidates
+2026-04-29 12:44:01,384 [INFO] news_agent.sources.homepage: Homepage: Amnesty International -> 40 candidates
+2026-04-29 12:44:02,105 [INFO] news_agent.sources.homepage: Homepage: NTD News -> 35 candidates
+2026-04-29 12:44:05,864 [INFO] news_agent.jobs.pipeline: Filtered 735 candidates -> 327 new articles
+2026-04-29 12:44:05,864 [INFO] news_agent.jobs.pipeline: Starting extraction (8 workers) + scoring (overlapped)...
+2026-04-29 12:44:05,864 [INFO] news_agent.jobs.pipeline: Processing 327 articles through extraction + scoring
+2026-04-29 12:48:05,872 [INFO] news_agent.jobs.pipeline: Still scoring: 31/327 articles remaining (4.0m elapsed)
+2026-04-29 12:49:01,905 [INFO] news_agent.reports.markdown: Report written to /Users/ronday/Desktop/Hasbara/news-agent/reports/report_20260429_0949.md
+2026-04-29 17:52:31,212 [INFO] news_agent.jobs.pipeline: Collecting from 21 sources (8 workers)...
+2026-04-29 17:52:31,651 [INFO] news_agent.sources.rss: RSS: BBC Middle East -> 35 candidates
+2026-04-29 17:52:31,677 [INFO] news_agent.sources.rss: RSS: Jerusalem Post -> 26 candidates
+2026-04-29 17:52:31,704 [INFO] news_agent.sources.rss: RSS: Times of Israel -> 12 candidates
+2026-04-29 17:52:31,715 [INFO] news_agent.sources.rss: RSS: France 24 English -> 29 candidates
+2026-04-29 17:52:31,725 [INFO] news_agent.sources.rss: RSS: Ynet News -> 30 candidates
+2026-04-29 17:52:31,841 [INFO] news_agent.sources.rss: RSS: Guardian Middle East -> 20 candidates
+2026-04-29 17:52:31,841 [WARNING] news_agent.sources.rss: RSS fetch failed for Al Jazeera English: HTTPSConnectionPool(host='www.aljazeera.com', port=443): Max retries exceeded with url: /xml/rss/all.xml (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1129)')))
+2026-04-29 17:52:31,881 [WARNING] news_agent.sources.rss: RSS fetch failed for AP World: 404 Client Error: Not Found for url: https://apnews.com/feed
+2026-04-29 17:52:31,916 [WARNING] news_agent.sources.homepage: Homepage fetch failed for Al Jazeera English: HTTPSConnectionPool(host='www.aljazeera.com', port=443): Max retries exceeded with url: /middle-east/ (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1129)')))
+2026-04-29 17:52:32,019 [WARNING] news_agent.sources.rss: RSS fetch failed for CNN World: HTTPSConnectionPool(host='rss.cnn.com', port=443): Max retries exceeded with url: /rss/edition_world.rss (Caused by SSLError(SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:1129)')))
+2026-04-29 17:52:32,125 [INFO] news_agent.sources.rss: RSS: Haaretz English -> 0 candidates
+2026-04-29 17:52:32,196 [INFO] news_agent.sources.rss: RSS: Fox News World -> 25 candidates
+2026-04-29 17:52:32,200 [INFO] news_agent.sources.rss: RSS: Sky News -> 10 candidates
+2026-04-29 17:52:32,246 [INFO] news_agent.sources.rss: RSS: Middle East Eye -> 20 candidates
+2026-04-29 17:52:32,408 [INFO] news_agent.sources.rss: RSS: Arutz Sheva -> 0 candidates
+2026-04-29 17:52:32,432 [WARNING] news_agent.sources.homepage: Homepage fetch failed for Walla News English: HTTPSConnectionPool(host='english.walla.co.il', port=443): Max retries exceeded with url: / (Caused by NameResolutionError("HTTPSConnection(host='english.walla.co.il', port=443): Failed to resolve 'english.walla.co.il' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-04-29 17:52:32,623 [INFO] news_agent.sources.homepage: Homepage: AP World -> 100 candidates
+2026-04-29 17:52:32,705 [INFO] news_agent.sources.homepage: Homepage: Arutz Sheva -> 89 candidates
+2026-04-29 17:52:32,846 [WARNING] news_agent.sources.rss: RSS fetch failed for NTD News: 404 Client Error: Not Found for url: https://www.ntd.com/rss/world.xml
+2026-04-29 17:52:32,854 [WARNING] news_agent.sources.rss: RSS fetch failed for Reuters: 404 Client Error: Not Found for url: https://reutersagency.com/feed/
+2026-04-29 17:52:32,858 [INFO] news_agent.sources.homepage: Homepage: i24 News -> 30 candidates
+2026-04-29 17:52:32,997 [INFO] news_agent.sources.homepage: Homepage: Haaretz English -> 100 candidates
+2026-04-29 17:52:33,128 [INFO] news_agent.sources.homepage: Homepage: CNN World -> 100 candidates
+2026-04-29 17:52:33,176 [WARNING] news_agent.sources.homepage: Homepage fetch failed for ICC: 403 Client Error: Forbidden for url: https://www.icc-cpi.int/news
+2026-04-29 17:52:33,211 [WARNING] news_agent.sources.homepage: Homepage fetch failed for Reuters: 401 Client Error: HTTP Forbidden for url: https://www.reuters.com/world/middle-east/
+2026-04-29 17:52:33,226 [INFO] news_agent.sources.rss: RSS: UN News Middle East -> 30 candidates
+2026-04-29 17:52:33,357 [INFO] news_agent.sources.homepage: Homepage: Amnesty International -> 40 candidates
+2026-04-29 17:52:34,044 [INFO] news_agent.sources.homepage: Homepage: NTD News -> 35 candidates
+2026-04-29 17:52:40,574 [INFO] news_agent.jobs.pipeline: Filtered 731 candidates -> 352 new articles
+2026-04-29 17:52:40,574 [INFO] news_agent.jobs.pipeline: Starting extraction (8 workers) + scoring (overlapped)...
+2026-04-29 17:52:40,574 [INFO] news_agent.jobs.pipeline: Processing 352 articles through extraction + scoring
+2026-04-29 17:52:49,609 [WARNING] news_agent.sources.extractor: Article fetch failed for https://news.sky.com/story/ukraine-clearly-has-the-kremlin-rattled-13538069: 403 Client Error: Forbidden for url: https://news.sky.com/story/ukraine-clearly-has-the-kremlin-rattled-13538069
+2026-04-29 17:56:40,584 [INFO] news_agent.jobs.pipeline: Still scoring: 336/352 articles remaining (4.0m elapsed)
+2026-04-29 18:00:40,590 [INFO] news_agent.jobs.pipeline: Still scoring: 329/352 articles remaining (8.0m elapsed)
+2026-04-29 18:04:40,597 [INFO] news_agent.jobs.pipeline: Still scoring: 324/352 articles remaining (12.0m elapsed)
+2026-04-29 18:08:40,604 [INFO] news_agent.jobs.pipeline: Still scoring: 262/352 articles remaining (16.0m elapsed)
+2026-04-29 18:12:40,611 [INFO] news_agent.jobs.pipeline: Still scoring: 257/352 articles remaining (20.0m elapsed)
+2026-04-29 18:16:40,616 [INFO] news_agent.jobs.pipeline: Still scoring: 243/352 articles remaining (24.0m elapsed)
+2026-04-29 18:21:36,397 [INFO] news_agent.analysis.claims: Extracted 6 claims from https://www.bbc.com/news/articles/cvgz5rgv4n3o?at_medium=RSS&at_campaign=rss
+2026-04-29 18:22:36,006 [INFO] news_agent.analysis.claims: Extracted 6 claims from https://www.middleeasteye.net/news/israeli-officers-say-lebanon-mission-focused-systematic-destruction-buildings
+2026-04-29 18:23:47,859 [INFO] news_agent.analysis.claims: Extracted 6 claims from https://www.middleeasteye.net/news/gaza-life-flickers-power-cuts-shatter-livelihoods-and-healthcare
+2026-04-29 18:24:20,171 [INFO] news_agent.analysis.claims: Extracted 2 claims from https://www.middleeasteye.net/live-blog/live-blog-update/over-12m-people-lebanon-face-acute-hunger-due-war
+2026-04-29 18:25:21,410 [INFO] news_agent.analysis.claims: Extracted 7 claims from https://www.israelnationalnews.com/news/426285
+2026-04-29 18:25:56,847 [INFO] news_agent.analysis.claims: Extracted 2 claims from https://www.israelnationalnews.com/news/426273
+2026-04-29 18:26:51,588 [WARNING] news_agent.analysis.ollama: Failed to parse model JSON output
+2026-04-29 18:26:51,589 [WARNING] news_agent.analysis.claims: Claim extraction failed for https://www.israelnationalnews.com/news/426276
+2026-04-29 18:30:11,717 [INFO] news_agent.reports.markdown: Report written to /Users/ronday/Desktop/Hasbara/news-agent/reports/report_20260429_1530.md
+2026-04-30 14:45:28,398 [INFO] news_agent.jobs.pipeline: Collecting from 19 sources (8 workers)...
+2026-04-30 14:45:28,859 [INFO] news_agent.sources.rss: RSS: Ynet News -> 30 candidates
+2026-04-30 14:45:28,868 [INFO] news_agent.sources.rss: RSS: Times of Israel -> 14 candidates
+2026-04-30 14:45:28,869 [INFO] news_agent.sources.rss: RSS: Jerusalem Post -> 26 candidates
+2026-04-30 14:45:28,889 [INFO] news_agent.sources.rss: RSS: BBC Middle East -> 32 candidates
+2026-04-30 14:45:28,988 [INFO] news_agent.sources.rss: RSS: France 24 English -> 28 candidates
+2026-04-30 14:45:29,008 [WARNING] news_agent.sources.rss: RSS fetch failed for Al Jazeera English: HTTPSConnectionPool(host='www.aljazeera.com', port=443): Max retries exceeded with url: /xml/rss/all.xml (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1129)')))
+2026-04-30 14:45:29,101 [WARNING] news_agent.sources.homepage: Homepage fetch failed for Al Jazeera English: HTTPSConnectionPool(host='www.aljazeera.com', port=443): Max retries exceeded with url: /middle-east/ (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1129)')))
+2026-04-30 14:45:29,140 [INFO] news_agent.sources.rss: RSS: Guardian Middle East -> 20 candidates
+2026-04-30 14:45:29,232 [INFO] news_agent.sources.homepage: Homepage: AP World -> 100 candidates
+2026-04-30 14:45:29,281 [WARNING] news_agent.sources.rss: RSS fetch failed for CNN World: HTTPSConnectionPool(host='rss.cnn.com', port=443): Max retries exceeded with url: /rss/edition_world.rss (Caused by SSLError(SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:1129)')))
+2026-04-30 14:45:29,365 [INFO] news_agent.sources.rss: RSS: Fox News World -> 25 candidates
+2026-04-30 14:45:29,373 [INFO] news_agent.sources.rss: RSS: Haaretz English -> 0 candidates
+2026-04-30 14:45:29,428 [INFO] news_agent.sources.rss: RSS: Arutz Sheva -> 0 candidates
+2026-04-30 14:45:29,519 [INFO] news_agent.sources.rss: RSS: Middle East Eye -> 20 candidates
+2026-04-30 14:45:29,524 [INFO] news_agent.sources.rss: RSS: Sky News -> 10 candidates
+2026-04-30 14:45:29,707 [INFO] news_agent.sources.homepage: Homepage: Arutz Sheva -> 81 candidates
+2026-04-30 14:45:29,741 [INFO] news_agent.sources.homepage: Homepage: i24 News -> 31 candidates
+2026-04-30 14:45:30,023 [INFO] news_agent.sources.rss: RSS: UN News Middle East -> 30 candidates
+2026-04-30 14:45:30,089 [INFO] news_agent.sources.homepage: Homepage: Haaretz English -> 100 candidates
+2026-04-30 14:45:30,097 [WARNING] news_agent.sources.homepage: Homepage fetch failed for ICC: 403 Client Error: Forbidden for url: https://www.icc-cpi.int/news
+2026-04-30 14:45:30,232 [INFO] news_agent.sources.homepage: Homepage: Amnesty International -> 40 candidates
+2026-04-30 14:45:30,324 [INFO] news_agent.sources.homepage: Homepage: CNN World -> 100 candidates
+2026-04-30 14:45:30,429 [INFO] news_agent.sources.homepage: Homepage: NTD News -> 36 candidates
+2026-04-30 14:45:34,880 [INFO] news_agent.jobs.pipeline: Filtered 723 candidates -> 367 new articles
+2026-04-30 14:45:34,880 [INFO] news_agent.jobs.pipeline: Starting extraction (8 workers) + scoring (overlapped)...
+2026-04-30 14:45:34,880 [INFO] news_agent.jobs.pipeline: Processing 367 articles through extraction + scoring
+2026-04-30 14:49:34,886 [INFO] news_agent.jobs.pipeline: Progress: scored=4 skipped=34 pending=329 of 367 (4.0m elapsed)
+2026-04-30 14:53:34,891 [INFO] news_agent.jobs.pipeline: Progress: scored=10 skipped=70 pending=287 of 367 (8.0m elapsed)
+2026-04-30 14:57:34,901 [INFO] news_agent.jobs.pipeline: Progress: scored=15 skipped=70 pending=282 of 367 (12.0m elapsed)
+2026-04-30 15:01:34,905 [INFO] news_agent.jobs.pipeline: Progress: scored=20 skipped=70 pending=277 of 367 (16.0m elapsed)
+2026-04-30 15:05:34,912 [INFO] news_agent.jobs.pipeline: Progress: scored=26 skipped=76 pending=265 of 367 (20.0m elapsed)
+2026-04-30 15:09:34,919 [INFO] news_agent.jobs.pipeline: Progress: scored=31 skipped=85 pending=251 of 367 (24.0m elapsed)
+2026-04-30 15:13:34,928 [INFO] news_agent.jobs.pipeline: Progress: scored=36 skipped=118 pending=213 of 367 (28.0m elapsed)
+2026-04-30 15:16:44,865 [INFO] news_agent.jobs.pipeline: Scoring loop complete: scored=41, skipped_stale=98, skipped_extract_failed=0, skipped_low_content=228, skipped_db_insert=0 (total=367)
+2026-04-30 15:17:22,243 [INFO] news_agent.analysis.claims: Extracted 1 claims from https://www.middleeasteye.net/live-blog/live-blog-update/irans-leader-accuses-us-driving-middle-east-insecurity-defends-irans
+2026-04-30 15:17:59,614 [INFO] news_agent.analysis.claims: Extracted 3 claims from https://www.middleeasteye.net/live-blog/live-blog-update/iran-says-new-chapter-strait-hormuz-after-us-shameful-failure
+2026-04-30 15:18:46,167 [INFO] news_agent.analysis.claims: Extracted 3 claims from https://www.middleeasteye.net/opinion/iran-us-israel-bomb-tehran-did-not-flee-heres-why
+2026-04-30 15:19:30,917 [INFO] news_agent.analysis.claims: Extracted 4 claims from https://www.middleeasteye.net/live-blog/live-blog-update/piracy-israel-raids-gaza-bound-aid-flotilla-greek-coast
+2026-04-30 15:20:07,525 [INFO] news_agent.analysis.claims: Extracted 3 claims from https://www.middleeasteye.net/live-blog/live-blog-update/gaza-genocide-death-toll-rises-72601
+2026-04-30 15:20:54,624 [INFO] news_agent.analysis.claims: Extracted 3 claims from https://www.middleeasteye.net/news/telegraph-and-politico-owner-says-journalists-must-support-israel-or-resign
+2026-04-30 15:21:44,784 [INFO] news_agent.analysis.claims: Extracted 5 claims from https://www.israelnationalnews.com/news/426327
+2026-04-30 15:22:27,314 [INFO] news_agent.analysis.claims: Extracted 2 claims from https://www.haaretz.com/israel-news/israel-security/2026-04-30/ty-article-live/israeli-defense-officials-confirm-ongoing-seizure-of-gaza-bound-flotilla-vessels/0000019d-dc8d-d473-a1bf-fded8e920000?liveBlogItemId=339946439#339946439
+2026-04-30 15:22:58,824 [INFO] news_agent.analysis.claims: Extracted 2 claims from https://www.haaretz.com/israel-news/israel-security/2026-04-30/ty-article-live/israeli-defense-officials-confirm-ongoing-seizure-of-gaza-bound-flotilla-vessels/0000019d-dc8d-d473-a1bf-fded8e920000?liveBlogItemId=1902783395#1902783395
+2026-04-30 15:27:50,767 [INFO] news_agent.reports.markdown: Report written to /Users/ronday/Desktop/Hasbara/news-agent/reports/report_20260430_1227.md
+2026-04-30 15:37:55,507 [INFO] news_agent.jobs.pipeline: Collecting from 19 sources (8 workers)...
+2026-04-30 15:37:55,892 [INFO] news_agent.sources.rss: RSS: Jerusalem Post -> 26 candidates
+2026-04-30 15:37:55,979 [INFO] news_agent.sources.rss: RSS: BBC Middle East -> 32 candidates
+2026-04-30 15:37:56,060 [INFO] news_agent.sources.rss: RSS: France 24 English -> 28 candidates
+2026-04-30 15:37:56,070 [INFO] news_agent.sources.rss: RSS: Times of Israel -> 11 candidates
+2026-04-30 15:37:56,083 [INFO] news_agent.sources.rss: RSS: Ynet News -> 30 candidates
+2026-04-30 15:37:56,126 [WARNING] news_agent.sources.rss: RSS fetch failed for Al Jazeera English: HTTPSConnectionPool(host='www.aljazeera.com', port=443): Max retries exceeded with url: /xml/rss/all.xml (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1129)')))
+2026-04-30 15:37:56,250 [WARNING] news_agent.sources.homepage: Homepage fetch failed for Al Jazeera English: HTTPSConnectionPool(host='www.aljazeera.com', port=443): Max retries exceeded with url: /middle-east/ (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1129)')))
+2026-04-30 15:37:56,401 [WARNING] news_agent.sources.rss: RSS fetch failed for CNN World: HTTPSConnectionPool(host='rss.cnn.com', port=443): Max retries exceeded with url: /rss/edition_world.rss (Caused by SSLError(SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:1129)')))
+2026-04-30 15:37:56,518 [INFO] news_agent.sources.homepage: Homepage: AP World -> 100 candidates
+2026-04-30 15:37:56,594 [INFO] news_agent.sources.rss: RSS: Fox News World -> 25 candidates
+2026-04-30 15:37:56,619 [INFO] news_agent.sources.rss: RSS: Haaretz English -> 0 candidates
+2026-04-30 15:37:56,819 [INFO] news_agent.sources.rss: RSS: Arutz Sheva -> 0 candidates
+2026-04-30 15:37:57,045 [INFO] news_agent.sources.rss: RSS: Middle East Eye -> 20 candidates
+2026-04-30 15:37:57,048 [INFO] news_agent.sources.rss: RSS: Sky News -> 10 candidates
+2026-04-30 15:37:57,072 [INFO] news_agent.sources.rss: RSS: Guardian Middle East -> 20 candidates
+2026-04-30 15:37:57,112 [INFO] news_agent.sources.homepage: Homepage: Arutz Sheva -> 82 candidates
+2026-04-30 15:37:57,121 [INFO] news_agent.sources.homepage: Homepage: i24 News -> 31 candidates
+2026-04-30 15:37:57,481 [INFO] news_agent.sources.homepage: Homepage: NTD News -> 36 candidates
+2026-04-30 15:37:57,586 [WARNING] news_agent.sources.homepage: Homepage fetch failed for ICC: 403 Client Error: Forbidden for url: https://www.icc-cpi.int/news
+2026-04-30 15:37:57,657 [INFO] news_agent.sources.homepage: Homepage: Haaretz English -> 100 candidates
+2026-04-30 15:37:57,731 [INFO] news_agent.sources.rss: RSS: UN News Middle East -> 30 candidates
+2026-04-30 15:37:57,862 [INFO] news_agent.sources.homepage: Homepage: Amnesty International -> 40 candidates
+2026-04-30 15:37:57,937 [INFO] news_agent.sources.homepage: Homepage: CNN World -> 100 candidates
+2026-04-30 15:38:03,586 [INFO] news_agent.jobs.pipeline: Filtered 721 candidates -> 343 new articles
+2026-04-30 15:38:03,587 [INFO] news_agent.jobs.pipeline: Extracting 343 articles (8 workers)...
+2026-04-30 15:38:40,811 [WARNING] news_agent.sources.extractor: Article fetch failed for https://news.sky.com/story/key-gangster-in-drug-operation-jailed-after-extradition-to-scotland-from-dubai-13538408: 403 Client Error: Forbidden for url: https://news.sky.com/story/key-gangster-in-drug-operation-jailed-after-extradition-to-scotland-from-dubai-13538408
+2026-04-30 15:40:51,581 [INFO] news_agent.jobs.pipeline: Extraction complete: attempted=343
+2026-04-30 15:40:51,581 [INFO] news_agent.jobs.pipeline: Sifting complete: kept=17, stale=95, low_content=231, fetch_failed=0 (of 343 filtered)
+2026-04-30 15:40:51,581 [INFO] news_agent.jobs.pipeline: Scoring 17 articles (serial Ollama)...
+2026-04-30 15:44:51,586 [INFO] news_agent.jobs.pipeline: Scoring progress: done=4 skipped=0 pending=13 of 17 (4.0m elapsed)
+2026-04-30 15:48:51,595 [INFO] news_agent.jobs.pipeline: Scoring progress: done=9 skipped=0 pending=8 of 17 (8.0m elapsed)
+2026-04-30 15:52:51,601 [INFO] news_agent.jobs.pipeline: Scoring progress: done=15 skipped=0 pending=2 of 17 (12.0m elapsed)
+2026-04-30 15:54:22,304 [INFO] news_agent.jobs.pipeline: Scoring complete: scored=17, db_insert_failed=0 (of 17 sifted)
+2026-04-30 15:55:16,719 [INFO] news_agent.analysis.claims: Extracted 3 claims from https://www.timesofisrael.com/ship-ukraine-says-carries-stolen-grain-will-not-offload-in-israel-after-diplomatic-row/
+2026-04-30 15:56:23,937 [INFO] news_agent.analysis.claims: Extracted 8 claims from https://www.timesofisrael.com/israel-just-quintupled-its-pr-budget-to-730-million-experts-say-it-wont-work/
+2026-04-30 15:57:17,534 [INFO] news_agent.analysis.claims: Extracted 5 claims from https://www.middleeasteye.net/news/israeli-forces-kill-palestinian-teen-west-bank-raid
+2026-04-30 15:58:20,132 [INFO] news_agent.analysis.claims: Extracted 4 claims from https://www.israelnationalnews.com/news/426341
+2026-04-30 15:58:47,574 [INFO] news_agent.analysis.claims: Extracted 1 claims from https://www.middleeasteye.net/live-blog/live-blog-update/telegraph-and-politico-owner-says-journalists-must-support-israel-or
+2026-04-30 15:59:40,777 [INFO] news_agent.analysis.claims: Extracted 6 claims from https://www.theguardian.com/world/2026/apr/30/israel-intercepts-detains-crews-gaza-aid-flotillas-crete
+2026-04-30 16:00:23,838 [INFO] news_agent.analysis.claims: Extracted 4 claims from https://www.i24news.tv/en/news/middle-east/iran-eastern-states/artc-iran-s-khamenei-refers-to-war-as-america-s-humiliating-defeat-in-national-persian-gulf-day-speech
+2026-04-30 16:04:31,080 [INFO] news_agent.reports.markdown: Report written to /Users/ronday/Desktop/Hasbara/news-agent/reports/report_20260430_1304.md
